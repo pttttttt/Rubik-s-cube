@@ -1,23 +1,16 @@
 # pt
 
-## Project setup
+## 启动
 ```
-npm install
-```
-
-### Compiles and hot-reloads for development
-```
-npm run serve
+打开终端依次输入命令 npm i 和 npm run serve 启动项目
 ```
 
-### Compiles and minifies for production
+### 操作
 ```
-npm run build
-```
-
-### Lints and fixes files
-```
-npm run lint
+鼠标单击各个面即可旋转，右键单击则是逆时针旋转
+鼠标单击后拖动可以控制整体旋转
+空格键回正视角
+esc键复原魔方
 ```
 
 ### Customize configuration

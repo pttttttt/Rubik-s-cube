@@ -66,6 +66,15 @@ export default {
       'rf', 'f', 'lf', 'l', 'lb', 'b', 'br', 'r', 'center',
       'drf', 'df', 'dlf', 'dl', 'dlb', 'db', 'drb', 'dr', 'd'
     ]
+    const defaultColor = {
+      t: '#fef12b',
+      d: '#ffffff',
+      r: '#ff9c13',
+      l: '#dd1416',
+      f: '#145dad',
+      b: '#52b802',
+      hide: '#efefef'
+    }
     let allColor = [] // 初始魔方的所有块每个面的颜色 复原时使用
     let companyLength = 100 // 偏移的单位长度
     const data = _optimizationDataHandler(basicPositioInfo)
@@ -91,7 +100,7 @@ export default {
     }]
     function _optimizationDataHandler(arr) { // 魔方光有位置信息并不能够较好地渲染 还需要进一步的处理
       const tmpData = []
-      let  color, judge, x, y, z, layer, rgba = '#efefef'
+      let color, judge, x, y, z, layer, rgba = defaultColor.hide
       arr.forEach((v, i) => {
         x = '' // 记录当前块的偏移量
         y = ''
@@ -104,14 +113,14 @@ export default {
           if (td) { // 当前代码块执行一次后在本循环体就不再执行
             if (v[j] === 'u') {
               y = 0
-              color.top = '#fef12b' // 黄色
+              color.top = defaultColor.t // 黄色
               layer.u = true
               judge = false
               td = false
               continue
             } else if (v[j] === 'd') {
               y = companyLength * 2
-              color.down = 'white'
+              color.down = defaultColor.d
               layer.d = true
               judge = false
               td = false
@@ -123,7 +132,7 @@ export default {
           if (rl) {
             if (v[j] === 'r') {
               x = companyLength * 2
-              color.right = '#ff9c13' // 橙色
+              color.right = defaultColor.r // 橙色
               color.left = rgba
               layer.r = true
               judge = false
@@ -131,7 +140,7 @@ export default {
               continue
             } else if (v[j] === 'l') {
               x = 0
-              color.left = '#dd1416' // 红色
+              color.left = defaultColor.l // 红色
               layer.l = true
               judge = false
               rl = false
@@ -143,14 +152,14 @@ export default {
           if (fa) {
             if (v[j] === 'f') {
               z = companyLength
-              color.front = '#145dad' // ；蓝色
+              color.front = defaultColor.f // ；蓝色
               layer.f = true
               judge = false
               fa = false
               continue
             } else if (v[j] === 'b') {
               z = -companyLength
-              color.after = '#52b802' // 绿色
+              color.after = defaultColor.b // 绿色
               layer.b = true
               judge = false
               fa = false

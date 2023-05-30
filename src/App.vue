@@ -16,9 +16,14 @@
 
 <style>
     body {
-        background: #7bc700;
+        margin: 0;
     }
 
+    ul {
+        margin: 0;
+        padding: 0;
+    }
+    
     ul li {
         list-style: none;
     }

@@ -13,9 +13,9 @@
         v-show="hideTip"
         v-for="data in tips"
         :key="data.id"
-        @click="!isImplementFormula && (SelectedFormula ? implementFormulaHanlder(data.id, formulaName) : controlRotateHandler(data.id, -90))"
+        @click="!isImplementFormula && (SelectedFormula ? implementFormulaHanlder(formula[formulaName][data.id]) : controlRotateHandler(data.id, -90))"
         @contextmenu.prevent="controlRotateHandler(data.id, 90)"
-        :style="`width: ${companyLength * 3}px; height: ${companyLength * 3}px; transform: ${data.deg} translateZ(${151 + companyLength % 100}px);`"
+        :style="`width: ${configInformation.companyLength * 3}px; height: ${configInformation.companyLength * 3}px; transform: ${data.deg} translateZ(${151 + configInformation.companyLength % 100}px);`"
       >
         <img src="../assets/fangxiang.png" alt="">
       </div>
@@ -52,15 +52,24 @@
         </div>
       </div>
     </div>
-    <div class="menu">
+    <div
+      class="menu"
+      :style="`top: ${150 + menuMoveConfig.y}px; left: ${100 + menuMoveConfig.x}px;`"
+      v-show="this.menuMoveConfig.display"
+    >
       <div class="head">
         <ul class="nav">
-          <li>公式</li>
-          <li>其他</li>
+          <li @click="switchFormula = true" :style="switchFormula && 'background: rgba(255, 255, 255, .5)'">公式</li>
+          <li @click="switchFormula = false" :style="switchFormula || 'background: rgba(255, 255, 255, .5)'">其他</li>
+          <li
+            class="move-control"
+            style="flex: auto;"
+            @mousedown="startMove($event)"
+          ></li>
         </ul>
       </div>
       <div class="body">
-        <ul>
+        <ul v-if="switchFormula">
           <li
             v-for="item in formulaButton"
             :key="item.key"
@@ -72,6 +81,16 @@
           </li>
           <li class="cancel" @click="cancelHanlder">
             <span>取 消</span><span>选 中</span>
+          </li>
+        </ul>
+        <ul v-else>
+          <li
+            v-for="item in otherFormulaButton"
+            :key="item.key"
+            @click="implementFormulaHanlder(otherFormula[item.key])"
+          >
+            <img :src="require('../assets/otherFormulaImg/' + item.key + '.png')" alt="寄">
+            <span>{{ item.name }}</span>
           </li>
         </ul>
       </div>
@@ -94,9 +113,9 @@
 </template>
 
 <script>
-import { operation, formula, formulaButton } from '../utils/formula.js'
+import { operation, formula, otherFormula, formulaButton, otherFormulaButton } from '../utils/formula.js'
 import deepCopy from '../utils/deepCopy.js'
-import { pageColor, bgcColor, rotateTime, initialAngle } from '../utils/configInformation.js'
+import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
 
 export default {
   name: 'MagicSquare',
@@ -113,28 +132,8 @@ export default {
       'drf', 'df', 'dlf', 'dl', 'dlb', 'db', 'drb', 'dr', 'd'
     ]
     let allColor = [] // 初始魔方的所有块每个面的颜色 复原时使用
-    let companyLength = 100 // 偏移的单位长度
     const data = _optimizationDataHandler(basicPositioInfo)
     const datas = deepCopy(data, [])
-    const tips = [{ // 魔方表面遮罩层配置信息
-      id: "u",
-      deg: 'rotateX(90deg)'
-    },{
-      id: "d",
-      deg: 'rotateX(-90deg)'
-    },{
-      id: "r",
-      deg: 'rotateY(90deg)'
-    },{
-      id: "l",
-      deg: 'rotateY(-90deg)'
-    },{
-      id: "f",
-      deg: ''
-    },{
-      id: "b",
-      deg: 'rotateY(180deg)'
-    }]
     function _optimizationDataHandler(arr) { // 魔方光有位置信息并不能够较好地渲染 还需要进一步的处理
       const tmpData = []
       let color, judge, x, y, z, layer, rgba = pageColor.hide
@@ -247,10 +246,11 @@ export default {
       datas,
       tips,
       allColor,
-      companyLength,
       operation: Object.freeze(operation), // 魔方所有操作方法
       formula: Object.freeze(formula), // 魔方公式
       formulaButton, // 魔方公式所对应的按钮
+      otherFormula: Object.freeze(otherFormula), // 其他魔方公式
+      otherFormulaButton,
       SelectedFormula: false, // 当前是否选中公式
       isImplementFormula: false, // 当前是否正在执行公式
       reversal: false, // 是否逆转公式
@@ -271,11 +271,23 @@ export default {
       hideTip: true, // 隐藏提示层
       transitionTime: 0.2, // 魔方整体旋转的过渡时间
       prohibitRotate: true, // 整体旋转的节流阀
+      switchFormula: true, // 公式 or 其他
       // 配置信息
       configInformation: {
         initialAngle, // 初始角度
         bgcColor, // 背景颜色
+        companyLength,
         rotateTime // 魔方单层旋转所需的时间
+      },
+      menuMoveConfig: {
+        display: true,
+        move: false,
+        x: 0,
+        y: 0,
+        downX: 0,
+        downY: 0,
+        moveX: 0,
+        moveY: 0
       }
     }
   },
@@ -344,14 +356,14 @@ export default {
       this.SelectedFormula = false
       this.formulaButton.forEach(v => v.active = false)
     },
-    implementFormulaHanlder (layer, formulaName = 'centerLayerLeft') { // 通过选择的公式和点击的层选择公式并交给递归函数执行
-      let formula = this.formula[formulaName][layer]
+    implementFormulaHanlder (formula) { // 通过选择的公式和点击的层选择公式并交给递归函数执行
       if (this.reversal) {
         formula = this._reversal(deepCopy(formula, []))
       }
       this._recursion(formula)
     },
     disruptionHanlder () { // 随机生成打乱公式
+      if (!this.intercept) return
       const keys = ['r', 'l', 'f', 'b', 'u', 'd']
       const disruptionFormula = []
       const disruptionFormulaKeys = []
@@ -386,6 +398,18 @@ export default {
       this.stepStr.pop()
       this.outputText = this.outputText.replace(/([a-z]|[a-z]('|2))$/, '')
       this.controlRotateHandler(...this._reversal([this.step.pop()])[0]).then(() => this.record = true)
+    },
+    startMove (e) {
+      this.menuMoveConfig.move = true
+      this.menuMoveConfig.downX = e.pageX
+      this.menuMoveConfig.downY = e.pageY
+      addEventListener('mousemove', this._move)
+    },
+    _move (e) {
+      const tmpX = this.menuMoveConfig.moveX + e.pageX - this.menuMoveConfig.downX
+      const tmpY = this.menuMoveConfig.moveY + e.pageY - this.menuMoveConfig.downY
+      this.menuMoveConfig.x = tmpX < -100 ? -100 : tmpX
+      this.menuMoveConfig.y = tmpY < -150 ? -150 : tmpY
     },
     _reversal (formulaArr) { // 逆转传入的步骤
       const dstArr = []
@@ -1153,8 +1177,11 @@ export default {
       fn(this.datas)
     },
     _keyUpEvent (e) { // 键盘弹起事件
+      // let formula = [['r', -90], ['f', 90], ['u', -90], ['b', -90], ['b', -90], ['f', 90], ['r', -90], ['f', -90], ['b', 90], ['b', 90], ['l', -90], ['b', -90], ['b', -90], ['f', -90], ['u', -90], ['u', -90], ['f', 90], ['u', -90], ['b', 90], ['u', 90], ['b', -90], ['u', 90], ['u', 90], ['f', 90], ['u', -90], ['f', -90], ['u', 90], ['b', -90], ['u', -90], ['b', 90], ['u', -90], ['r', -90], ['u', 90], ['r', 90], ['u', 90], ['b', 90], ['u', -90], ['b', -90], ['u', 90], ['u', -90], ['b', -90], ['u', 90], ['b', 90], ['u', 90], ['l', 90], ['u', -90], ['l', -90], ['u', 90], ['r', 90], ['u', -90], ['r', -90], ['u', -90], ['f', -90], ['u', 90], ['f', 90], ['r', -90], ['f', 90], ['r', 90], ['f', -90], ['u', -90], ['f', -90], ['u', 90], ['f', 90], ['r', -90], ['u', 180, 400], ['r', 90], ['u', 90], ['r', -90], ['u', 90], ['r', 90], ['u', -90], ['l', 90], ['u', -90], ['l', 90], ['u', 90], ['l', 90], ['u', 90], ['l', 90], ['u', -90], ['l', -90], ['u', -90], ['l', -180, 400], ['f', 90], ['u', -90], ['f', 90], ['u', 90], ['f', 90], ['u', 90], ['f', 90], ['u', -90], ['f', -90], ['u', -90], ['f', 180, 400]]
+      let formula = [['d', -90], ['d', -90], ['u', -90], ['r', -90], ['f', 90], ['d', -90], ['d', -90], ['l', -90], ['d', -90], ['d', -90], ['l', 90], ['l', 90], ['u', -90], ['l', -90], ['f', 90], ['r', -90], ['f', -90], ['u', -90], ['u', -90], ['l', 90], ['u', 90], ['u', 90], ['l', -90], ['u', -90], ['l', 90], ['u', 90], ['l', -90], ['f', -90], ['u', 90], ['f', 90], ['u', -90], ['b', 90], ['u', -90], ['u', -90], ['b', -90], ['u', -90], ['b', 90], ['u', 90], ['b', -90], ['f', 90], ['u', -90], ['u', -90], ['f', -90], ['u', -90], ['u', 90], ['l', 90], ['u', -90], ['l', -90], ['u', -90], ['b', -90], ['u', 90], ['b', 90], ['u', -90], ['u', 90], ['b', 90], ['u', -90], ['b', -90], ['u', -90], ['r', -90], ['u', 90], ['r', 90], ['u', -90], ['f', -90], ['u', 90], ['f', 90], ['u', 90], ['r', 90], ['u', -90], ['r', -90], ['u', -90], ['u', -90], ['l', -90], ['u', 90], ['l', 90], ['u', 90], ['f', 90], ['u', -90], ['f', -90], ['f', 90], ['r', 90], ['u', 90], ['r', -90], ['u', -90], ['f', -90], ['b', -90], ['u', 180, 400], ['b', 90], ['u', 90], ['b', -90], ['u', 90], ['b', 90], ['l', -90], ['u', -90], ['l', 90], ['u', -90], ['l', -90], ['u', 180, 400], ['l', 90], ['u', 90], ['u', 90], ['r', 90], ['u', -90], ['r', 90], ['u', 90], ['r', 90], ['u', 90], ['r', 90], ['u', -90], ['r', -90], ['u', -90], ['r', 180, 400], ['f', 90], ['u', -90], ['f', 90], ['u', 90], ['f', 90], ['u', 90], ['f', 90], ['u', -90], ['f', -90], ['u', -90], ['f', 180, 400]]
       switch(e.key) {
         case ' ':
+          if (e.ctrlKey) this.menuMoveConfig.display = !this.menuMoveConfig.display
           this.x = this.y = 0
           break
         case 'Escape':
@@ -1162,7 +1189,8 @@ export default {
           break
         case 'Enter':
           // this.disruptionHanlder()
-          this._recursion([['b', 90], ['u', 90], ['b', -90], ['u', -90], ['b', 90], ['u', 90], ['b', -90], ['l', 90], ['u', 180, 400], ['l', -90], ['u', -90], ['f', 90], ['u', 180, 400], ['f', -90], ['u', -90], ['f', 90], ['u', 90], ['f', -90], ['u', 180, 400], ['r', 90], ['u', -90], ['r', -90], ['u', 180, 400], ['r', 90], ['u', 90], ['r', -90], ['u', -90], ['l', -90], ['u', 90], ['l', 90], ['u', 90], ['f', 90], ['u', -90], ['f', -90], ['u', -90], ['b', -90], ['u', 90], ['b', 90], ['u', 90], ['l', 90], ['u', -90], ['l', -90], ['r', -90], ['u', 90], ['r', 90], ['u', 90], ['b', 90], ['u', -90], ['b', -90], ['u', 90], ['f', -90], ['u', 90], ['f', 90], ['u', 90], ['r', 90], ['u', -90], ['r', -90], ['b', -90], ['r', 90], ['b', 90], ['r', -90], ['u', -90], ['r', -90], ['u', 90], ['r', 180, 400], ['b', 90], ['u', 90], ['b', -90], ['u', -90], ['r', -90], ['f', -90], ['u', 180, 400], ['f', 90], ['u', 90], ['f', -90], ['u', 90], ['f', 90], ['r', -90], ['u', -90], ['r', 90], ['u', -90], ['r', -90], ['u', 180, 400], ['r', 90], ['u', 90], ['r', 180, 400], ['u', 90], ['r', 90], ['u', 90], ['r', -90], ['u', -90], ['r', -90], ['u', -90], ['r', -90], ['u', 90], ['r', -90]])
+          if (this.reversal) formula = this._reversal(formula)
+          this._recursion(formula)
           break
       }
     },
@@ -1213,6 +1241,12 @@ export default {
     addEventListener('keyup', e => this._keyUpEvent(e))
     addEventListener('keydown', e => this._keyDownEvent(e))
     addEventListener('mouseup', () => { // 鼠标弹起时触发
+      if (this.menuMoveConfig.move) {
+        this.menuMoveConfig.move = false
+        this.menuMoveConfig.moveX = this.menuMoveConfig.x
+        this.menuMoveConfig.moveY = this.menuMoveConfig.y
+        removeEventListener('mousemove', this._move)
+      }
       if (!this.clickIsInPage) return
       removeEventListener('mousemove', this._mouseMove) // 注销鼠标移动的监听事件 节约性能以及防止不可预料的bug
       let yValue = this.y
@@ -1283,13 +1317,9 @@ export default {
 }
 /* 菜单 */
 .menu {
-  /* display: none; */
   width: 400px;
   position: absolute;
-  top: 100px;
-  left: 100px;
   box-shadow: 0 0 10px 5px rgba(0, 0, 0, .2);
-  transition: all .2s;
 }
 .head {
   border-bottom: 1px solid white;
@@ -1308,8 +1338,8 @@ export default {
   line-height: 40px;
   transition: all .2s;
 }
-.head>ul>li:hover {
-  background-color: rgba(255, 255, 255, .5);
+.head>ul>li:not(.move-control:hover):hover {
+  background-color: rgba(255, 255, 255, .3);
 }
 .body {
   padding: 10px;
@@ -1368,9 +1398,6 @@ export default {
   background-color: rgba(255, 255, 255, .5);
 }
 .footer .formula {
-  /* display: inline-block;
-  width: 100%; */
   word-wrap: break-word;
-  /* height: 20px; */
 }
 </style>

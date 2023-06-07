@@ -292,58 +292,48 @@ export default {
     }
   },
   methods: {
-    controlRotateHandler (str, deg, time = this.configInformation.rotateTime) { // 控制魔方旋转
-      const tmpFormula = [str, deg, time]
+    controlRotateHandler (layer, deg, time = this.configInformation.rotateTime) { // 控制魔方单层旋转 核心逻辑
+      const tmpFormula = [layer, deg, time] // 保存传入的初始值 为后续的记录做准备
       return new Promise(resolve => {
-        if (this.intercept && (this.prohibitRotate || this.isImplementFormula)) {
-          let axis
-          switch (str) { // 根据点击的的层调整旋转的轴以及方向
-            case 'r':
-              axis = 'x'
-              break
-            case 'l':
-              axis = 'x'
-              deg = -deg
-              break
-            case 'u':
-              axis = 'y'
-              deg = -deg
-              break
-            case 'd':
-              axis = 'y'
-              break
-            case 'f':
-              axis = 'z'
-              break
-            case 'b':
-              axis = 'z'
-              deg = -deg
-              break
-          }
-          this.intercept = false // 开启节流阀
-          this._displaySwitch(false, str) // 隐藏非旋转体被点击的层 隐藏旋转体未被点击的层
-          this.revolve = `transition: all ${time / 1000}s; transform: rotate${axis}(${deg}deg);` // 通过过渡和3d转换来做出旋转的动画效果
-          setTimeout(() => { // 此代码块会在旋转的动画效果结束后执行
-            this._colorExchange(this.data, str, deg) // 根据点击的层以及方式对两个魔方体的颜色进行变换
-            this._colorExchange(this.datas, str, deg)
-            this.revolve = `` // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把旋转体复原到原本的旋转角度
-            this._displaySwitch(true, str) // 恢复旋转之前被隐藏的层
-            if (this.record) { // 记录
-              this.step.push([...tmpFormula])
-              this.outputText += tmpFormula[0] + (tmpFormula[2] === this.configInformation.rotateTime ? tmpFormula[1] > 0 ? '' : '\'' : '2')
-              tmpFormula[0] = '\'' + str + '\''
-              if (tmpFormula[2] === this.configInformation.rotateTime * 2) {
-                this.stepStr.push(', [' + tmpFormula.join(', ') + ']')
-              } else {
-                this.stepStr.push(', [' + tmpFormula[0] + ', ' + tmpFormula[1] + ']')
-              }
-            }
-            setTimeout(() => {
-              this.intercept = true // 关闭节流阀
-              resolve(tmpFormula) // 执行完等一会后再告诉promise已经完成，防止无法预料的bug
-            }, 100);
-          }, time + 5)
+        if (!(this.intercept && (this.prohibitRotate || this.isImplementFormula))) return
+        this.record && this._record(tmpFormula) // 记录
+        let axis
+        switch (layer) { // 根据点击的的层调整旋转的轴以及方向
+          case 'r':
+            axis = 'x'
+            break
+          case 'l':
+            axis = 'x'
+            deg = -deg
+            break
+          case 'u':
+            axis = 'y'
+            deg = -deg
+            break
+          case 'd':
+            axis = 'y'
+            break
+          case 'f':
+            axis = 'z'
+            break
+          case 'b':
+            axis = 'z'
+            deg = -deg
+            break
         }
+        this.intercept = false // 开启节流阀
+        this._displaySwitch(false, layer) // 隐藏非旋转体被点击的层 隐藏旋转体未被点击的层
+        this.revolve = `transition: all ${time / 1000}s; transform: rotate${axis}(${deg}deg);` // 通过过渡和3d转换来做出旋转的动画效果
+        setTimeout(() => { // 此代码块会在旋转的动画效果结束后执行
+          this._colorExchange(this.data, layer, deg) // 根据点击的层以及方式对两个魔方体的颜色进行变换
+          this._colorExchange(this.datas, layer, deg)
+          this.revolve = `` // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把旋转体复原到原本的旋转角度
+          this._displaySwitch(true, layer) // 恢复旋转之前被隐藏的层
+          setTimeout(() => {
+            this.intercept = true // 关闭节流阀
+            resolve(tmpFormula) // 执行完等一会后再告诉promise已经完成，防止无法预料的bug
+          }, 100);
+        }, time + 5)
       })
     },
     choiceFormulaHanlder (formulaName, data) { // 选中某一个公式
@@ -399,13 +389,23 @@ export default {
       this.outputText = this.outputText.replace(/([a-z]|[a-z]('|2))$/, '')
       this.controlRotateHandler(...this._reversal([this.step.pop()])[0]).then(() => this.record = true)
     },
-    startMove (e) {
+    startMove (e) { // 控制功能菜单拖拽
       this.menuMoveConfig.move = true
       this.menuMoveConfig.downX = e.pageX
       this.menuMoveConfig.downY = e.pageY
       addEventListener('mousemove', this._move)
     },
-    _move (e) {
+    _record (formula) { // 记录
+      this.step.push([...formula])
+      this.outputText += formula[0] + (formula[2] === this.configInformation.rotateTime ? formula[1] > 0 ? '' : '\'' : '2')
+      formula[0] = '\'' + formula[0] + '\''
+      if (formula[2] === this.configInformation.rotateTime * 2) {
+        this.stepStr.push(', [' + formula.join(', ') + ']')
+      } else {
+        this.stepStr.push(', [' + formula[0] + ', ' + formula[1] + ']')
+      }
+    },
+    _move (e) { // 拖拽时监听鼠标移动的回调
       const tmpX = this.menuMoveConfig.moveX + e.pageX - this.menuMoveConfig.downX
       const tmpY = this.menuMoveConfig.moveY + e.pageY - this.menuMoveConfig.downY
       this.menuMoveConfig.x = tmpX < -100 ? -100 : tmpX
@@ -441,14 +441,14 @@ export default {
       }
       return fn(this.controlRotateHandler(...formula.shift()), formula)
     },
-    _displaySwitch (boolean, str) { // 旋转时控制魔方显示部分
-      this.data.forEach((v, i) => v.layer[str] ? this.datas[i].display = boolean : v.display = boolean)
+    _displaySwitch (boolean, layer) { // 旋转时控制魔方显示部分
+      this.data.forEach((v, i) => v.layer[layer] ? this.datas[i].display = boolean : v.display = boolean)
     },
-    _colorExchange (data, str, deg) { // 旋转后的颜色变换函数
+    _colorExchange (data, layer, deg) { // 旋转后的颜色变换函数
       let a, b, c, d, e, A, B, C, D, E // 中转变量
       // 通过最low的方式去实现的颜色变换(手动去调换每一个面的颜色) 暂时没找到合适的方法去简化代码
       // 外层switch区分层 内层区分旋转角度 旋转方向从上往下依次为：顺时针，逆时针，顺时针
-      switch(str) {
+      switch(layer) {
         case 'u':
           switch(deg) {
             case -90:

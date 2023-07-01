@@ -116,6 +116,7 @@
 import { operation, formula, otherFormula, formulaButton, otherFormulaButton } from '../utils/formula.js'
 import deepCopy from '../utils/deepCopy.js'
 import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
+import pasteTextToClipboard from '../utils/pasteTextToClipboard.js'
 
 export default {
   name: 'MagicSquare',
@@ -133,7 +134,7 @@ export default {
     ]
     let allColor = [] // 初始魔方的所有块每个面的颜色 复原时使用
     const data = _optimizationDataHandler(basicPositioInfo)
-    const datas = deepCopy(data, [])
+    const datas = deepCopy(data)
     function _optimizationDataHandler(arr) { // 魔方光有位置信息并不能够较好地渲染 还需要进一步的处理
       const tmpData = []
       let color, judge, x, y, z, layer, rgba = pageColor.hide
@@ -257,7 +258,6 @@ export default {
       formulaName: '', // 当前选中公式的名称
       record: false, // 是否开始记录
       step: [], // 当前已经执行过的步骤
-      stepStr: [], // 字符串形式的步骤
       outputText: '', // 文本形式输出的公式
       revolve: '', // 旋转时给旋转体加的样式
       intercept: true, // 单层旋转时的节流阀
@@ -279,7 +279,7 @@ export default {
         companyLength,
         rotateTime // 魔方单层旋转所需的时间
       },
-      menuMoveConfig: {
+      menuMoveConfig: { // 菜单配置信息
         display: true,
         move: false,
         x: 0,
@@ -348,11 +348,11 @@ export default {
     },
     implementFormulaHanlder (formula) { // 通过选择的公式和点击的层选择公式并交给递归函数执行
       if (this.reversal) {
-        formula = this._reversal(deepCopy(formula, []))
+        formula = this._reversal(deepCopy(formula))
       }
       this._recursion(formula)
     },
-    disruptionHanlder () { // 随机生成打乱公式
+    disruptionHanlder () { // 打乱
       if (!this.intercept) return
       const keys = ['r', 'l', 'f', 'b', 'u', 'd']
       const disruptionFormula = []
@@ -368,28 +368,31 @@ export default {
           }
         }
         if (!this.record) this.outputText = disruptionFormulaKeys.join('')
-        disruptionFormula.push(this.operation[key][0])
+        disruptionFormula.push(this.operation[key])
       }
       this._recursion(disruptionFormula)
     },
-    startRecordHandler () { // 开始记录
-      this.stepStr = []
+    startRecordHandler () { // 开始
       this.outputText = ''
       this.record = true
     },
-    closeRecordHandler () { // 结束记录
-      console.log(this.stepStr.join(''))
+    closeRecordHandler () { // 结束
+      const formula = this._strToFormula(this.outputText) // 将记录的字符串转换为公式
+      const simplifyFormula = this._simplifyStepsHanlder(formula) // 简化公式
+      const str = this._formulaToStr(simplifyFormula, true) // 公式转字符串
+      pasteTextToClipboard(str) // 将最终公式粘贴到剪贴板
+      console.log('原始公式：' + '\'' + this.outputText.replace(/'/g, '\\\'') + '\'') // 控制台输出原始公式
+      console.log('简化公式：' + '\'' + this._formulaToStr(simplifyFormula).replace(/'/g, '\\\'') + '\'') // 控制台输出简化公式
       this.record = false
     },
-    rollBackHandler () { // 点击撤销按钮触发
+    rollBackHandler () { // 撤销
       if (!this.intercept) return
       if (!this.step.length) return
       this.record = false
-      this.stepStr.pop()
       this.outputText = this.outputText.replace(/([a-z]|[a-z]('|2))$/, '')
       this.controlRotateHandler(...this._reversal([this.step.pop()])[0]).then(() => this.record = true)
     },
-    startMove (e) { // 控制功能菜单拖拽
+    startMove (e) { // 菜单拖拽
       this.menuMoveConfig.move = true
       this.menuMoveConfig.downX = e.pageX
       this.menuMoveConfig.downY = e.pageY
@@ -397,13 +400,7 @@ export default {
     },
     _record (formula) { // 记录
       this.step.push([...formula])
-      this.outputText += formula[0] + (formula[2] === this.configInformation.rotateTime ? formula[1] > 0 ? '' : '\'' : '2')
-      formula[0] = '\'' + formula[0] + '\''
-      if (formula[2] === this.configInformation.rotateTime * 2) {
-        this.stepStr.push(', [' + formula.join(', ') + ']')
-      } else {
-        this.stepStr.push(', [' + formula[0] + ', ' + formula[1] + ']')
-      }
+      this.outputText += this._formulaToStr([formula])
     },
     _move (e) { // 拖拽时监听鼠标移动的回调
       const tmpX = this.menuMoveConfig.moveX + e.pageX - this.menuMoveConfig.downX
@@ -425,21 +422,27 @@ export default {
       return dstArr
     },
     _recursion (tmpFormula) { // 递归执行传入的公式
-      if (!this.prohibitRotate) return
-      if (!tmpFormula) return
-      this.isImplementFormula = true
+      if (!this.prohibitRotate) return // 魔方整体旋转时禁止单层旋转
+      if (!tmpFormula.length) return // 公式不能为空
+      this.isImplementFormula = true // 打开执行公式的节流阀
       const formula = [...tmpFormula]
       const fn = promise => {
         promise.then(() => {
           const next = this.controlRotateHandler(...formula.shift())
           if (formula.length) fn(next)
           else {
-            next.then(() => this.isImplementFormula = false)
+            next.then(() => this.isImplementFormula = false) // 当最后一个步骤执行完成后关闭节流阀
             return next
           }
         })
       }
-      return fn(this.controlRotateHandler(...formula.shift()), formula)
+      if (formula.length === 1) { // 边界判断 当公式中只有一步操作时
+        const next = this.controlRotateHandler(...formula.shift())
+        next.then(() => this.isImplementFormula = false)
+        return next
+      } else {
+        return fn(this.controlRotateHandler(...formula.shift()))
+      }
     },
     _displaySwitch (boolean, layer) { // 旋转时控制魔方显示部分
       this.data.forEach((v, i) => v.layer[layer] ? this.datas[i].display = boolean : v.display = boolean)
@@ -1177,8 +1180,6 @@ export default {
       fn(this.datas)
     },
     _keyUpEvent (e) { // 键盘弹起事件
-      // let formula = [['r', -90], ['f', 90], ['u', -90], ['b', -90], ['b', -90], ['f', 90], ['r', -90], ['f', -90], ['b', 90], ['b', 90], ['l', -90], ['b', -90], ['b', -90], ['f', -90], ['u', -90], ['u', -90], ['f', 90], ['u', -90], ['b', 90], ['u', 90], ['b', -90], ['u', 90], ['u', 90], ['f', 90], ['u', -90], ['f', -90], ['u', 90], ['b', -90], ['u', -90], ['b', 90], ['u', -90], ['r', -90], ['u', 90], ['r', 90], ['u', 90], ['b', 90], ['u', -90], ['b', -90], ['u', 90], ['u', -90], ['b', -90], ['u', 90], ['b', 90], ['u', 90], ['l', 90], ['u', -90], ['l', -90], ['u', 90], ['r', 90], ['u', -90], ['r', -90], ['u', -90], ['f', -90], ['u', 90], ['f', 90], ['r', -90], ['f', 90], ['r', 90], ['f', -90], ['u', -90], ['f', -90], ['u', 90], ['f', 90], ['r', -90], ['u', 180, 400], ['r', 90], ['u', 90], ['r', -90], ['u', 90], ['r', 90], ['u', -90], ['l', 90], ['u', -90], ['l', 90], ['u', 90], ['l', 90], ['u', 90], ['l', 90], ['u', -90], ['l', -90], ['u', -90], ['l', -180, 400], ['f', 90], ['u', -90], ['f', 90], ['u', 90], ['f', 90], ['u', 90], ['f', 90], ['u', -90], ['f', -90], ['u', -90], ['f', 180, 400]]
-      let formula = [['d', -90], ['d', -90], ['u', -90], ['r', -90], ['f', 90], ['d', -90], ['d', -90], ['l', -90], ['d', -90], ['d', -90], ['l', 90], ['l', 90], ['u', -90], ['l', -90], ['f', 90], ['r', -90], ['f', -90], ['u', -90], ['u', -90], ['l', 90], ['u', 90], ['u', 90], ['l', -90], ['u', -90], ['l', 90], ['u', 90], ['l', -90], ['f', -90], ['u', 90], ['f', 90], ['u', -90], ['b', 90], ['u', -90], ['u', -90], ['b', -90], ['u', -90], ['b', 90], ['u', 90], ['b', -90], ['f', 90], ['u', -90], ['u', -90], ['f', -90], ['u', -90], ['u', 90], ['l', 90], ['u', -90], ['l', -90], ['u', -90], ['b', -90], ['u', 90], ['b', 90], ['u', -90], ['u', 90], ['b', 90], ['u', -90], ['b', -90], ['u', -90], ['r', -90], ['u', 90], ['r', 90], ['u', -90], ['f', -90], ['u', 90], ['f', 90], ['u', 90], ['r', 90], ['u', -90], ['r', -90], ['u', -90], ['u', -90], ['l', -90], ['u', 90], ['l', 90], ['u', 90], ['f', 90], ['u', -90], ['f', -90], ['f', 90], ['r', 90], ['u', 90], ['r', -90], ['u', -90], ['f', -90], ['b', -90], ['u', 180, 400], ['b', 90], ['u', 90], ['b', -90], ['u', 90], ['b', 90], ['l', -90], ['u', -90], ['l', 90], ['u', -90], ['l', -90], ['u', 180, 400], ['l', 90], ['u', 90], ['u', 90], ['r', 90], ['u', -90], ['r', 90], ['u', 90], ['r', 90], ['u', 90], ['r', 90], ['u', -90], ['r', -90], ['u', -90], ['r', 180, 400], ['f', 90], ['u', -90], ['f', 90], ['u', 90], ['f', 90], ['u', 90], ['f', 90], ['u', -90], ['f', -90], ['u', -90], ['f', 180, 400]]
       switch(e.key) {
         case ' ':
           if (e.ctrlKey) this.menuMoveConfig.display = !this.menuMoveConfig.display
@@ -1188,9 +1189,8 @@ export default {
           this._restore()
           break
         case 'Enter':
-          // this.disruptionHanlder()
-          if (this.reversal) formula = this._reversal(formula)
-          this._recursion(formula)
+          this.disruptionHanlder()
+          // this._recursion(this._strToFormula('fulfdburbfldbrurublf'))
           break
       }
     },
@@ -1235,6 +1235,74 @@ export default {
       let tmpAndX = diffY + this.tmpX // 原始x轴旋转角度
       this.x = tmpAndX < -45 ? -45 : tmpAndX > 45 ? 45 : tmpAndX // 限制x轴旋转的角度范围 -45到45之间
       this.y = diffX + this.tmpY
+    },
+    _strToFormula (str) { // 字符串转公式
+      const formula = []
+      for (let i = 0, n = str.length; i < n; i++) {
+        const layer = str[i]
+        const angle = str[i + 1]
+        if (/[a-z]/.test(angle)) {
+          formula.push(operation[layer])
+        } else {
+          angle === '\'' ? formula.push(operation[layer + '1']) : formula.push(operation[layer + angle])
+          i++
+        }
+      }
+      return formula
+    },
+    _formulaToStr (formula, isSplicingArrForm = false) { // 公式转字符串
+      let str = ''
+      const strArr = []
+      formula.forEach(value => {
+        if (isSplicingArrForm) {
+          if (value[1] === -90) strArr.push(value[0] + '1')
+          else if (value[1] === 180 || value[1] === -180) strArr.push(value[0] + '2')
+          else strArr.push(value[0])
+        } else {
+          str += value[0]
+          if (value[1] === -90) str += '\''
+          else if (value[1] === 180 || value[1] === -180) str += '2'
+        }
+      })
+      return isSplicingArrForm ? '[' + strArr.join(', ') + ']' : str
+    },
+    _simplifyStepsHanlder(originaFlormula) { // 简化公式
+      const simplifyFormula = []
+      for(let i = 0, n = originaFlormula.length; i < n; i++) {
+        let tmpStep = simplifyFormula[simplifyFormula.length - 1]
+        const step = originaFlormula[i]
+        if (!tmpStep) {
+          simplifyFormula.push(step)
+          continue
+        }
+        const sum = step[1] + tmpStep[1] - 0
+        if (step[0] === tmpStep[0]) {
+            simplifyFormula.pop()
+            switch (sum) {
+            case 270:
+              simplifyFormula.push([step[0], -90])
+            break
+            case -270:
+              simplifyFormula.push([step[0], 90])
+            break
+            case 180:
+              simplifyFormula.push([step[0], 180, 400])
+            break
+            case -180:
+              simplifyFormula.push([step[0], 180, 400])
+            break
+            case 90:
+              simplifyFormula.push([step[0], 90])
+            break
+            case -90:
+              simplifyFormula.push([step[0], -90])
+            break
+          }
+        } else {
+          simplifyFormula.push(step)
+        }
+      }
+      return simplifyFormula
     }
   },
   mounted () {

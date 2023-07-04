@@ -1,70 +1,90 @@
-import { rotateTime } from "./configInformation"
-export const operation = { // 所有层的基础操作
-  r: ['r', 90], r1: ['r', -90], r2: ['r', 180, rotateTime * 2],
-  l: ['l', 90], l1: ['l', -90], l2: ['l', -180, rotateTime * 2],
-  f: ['f', 90], f1: ['f', -90], f2: ['f', 180, rotateTime * 2],
-  b: ['b', 90], b1: ['b', -90], b2: ['b', -180, rotateTime * 2],
-  u: ['u', 90], u1: ['u', -90], u2: ['u', 180, rotateTime * 2],
-  d: ['d', 90], d1: ['d', -90], d2: ['d', -180, rotateTime * 2]
+/**
+ * 所有层的基础操作
+ */
+export const operation = {
+  r: ['r', 90], r1: ['r', -90], r2: ['r', 180],
+  l: ['l', 90], l1: ['l', -90], l2: ['l', -180],
+  f: ['f', 90], f1: ['f', -90], f2: ['f', 180],
+  b: ['b', 90], b1: ['b', -90], b2: ['b', -180],
+  u: ['u', 90], u1: ['u', -90], u2: ['u', 180],
+  d: ['d', 90], d1: ['d', -90], d2: ['d', -180]
 }
 const { r, r1, r2, l, l1, l2, f, f1, f2, b, b1, b2, u, u1, u2, d, d2 } = operation
-export const formula = { // 公式
-  centerLayerRight: { // 中间层 右
-    r: [u, b, u1, b1, u1, r1, u, r],
-    l: [u, f, u1, f1, u1, l1, u, l],
-    f: [u, r, u1, r1, u1, f1, u, f],
-    b: [u, l, u1, l1, u1, b1, u, b],
-    u: false,
-    d: false
+/**
+ * 每一个面相对位置映射
+ */
+const relativePosition = {
+  r: {
+    r: 'b',
+    l: 'f',
+    f: 'r',
+    b: 'l'
   },
-  centerLayerLeft: { // 中间层 左
-    r: [u1, f1, u, f, u, r, u1, r1],
-    l: [u1, b1, u, b, u, l, u1, l1],
-    f: [u1, l1, u, l, u, f, u1, f1],
-    b: [u1, r1, u, r, u, b, u1, b1],
-    u: false,
-    d: false
+  l: {
+    r: 'f',
+    l: 'b',
+    f: 'l',
+    b: 'r'
   },
-  topLayerOne: { // 顶层 L
-    r: [b1, r, b, r1, u1, r1, u, r],
-    l: [f1, l, f, l1, u1, l1, u, l],
-    f: [r1, f, r, f1, u1, f1, u, f],
-    b: [l1, b, l, b1, u1, b1, u, b],
-    u: false,
-    d: false
+  f: {
+    r: 'r',
+    l: 'l',
+    f: 'f',
+    b: 'b'
   },
-  topLayerTwo: { // 顶层 横
-    r: [r, b, u, b1, u1, r1],
-    l: [l, f, u, f1, u1, l1],
-    f: [f, r, u, r1, u1, f1],
-    b: [b, l, u, l1, u1, b1],
-    u: false,
-    d: false
-  },
-  topLayerFishOne: { // 顶面复原
-    r: [b1, u2, b, u, b1, u, b],
-    l: [f1, u2, f, u, f1, u, f],
-    f: [r1, u2, r, u, r1, u, r],
-    b: [l1, u2, l, u, l1, u, l],
-    u: false,
-    d: false
-  },
-  topLayerCornerBlock: { // 顶层 角块
-    r: [b, l1, b, r2, b1, l, b, r2, b2],
-    l: [f, r1, f, l2, f1, r, f, l2, f2],
-    f: [r, b1, r, f2, r1, b, r, f2, r2],
-    b: [l, f1, l, b2, l1, f, l, b2, l2],
-    u: false,
-    d: false
-  },
-  topLayerEdgeBlockOne: { // 顶层 棱块 正
-    r: [b, u1, b, u, b, u, b, u1, b1, u1, b2],
-    l: [f, u1, f, u, f, u, f, u1, f1, u1, f2],
-    f: [r, u1, r, u, r, u, r, u1, r1, u1, r2],
-    b: [l, u1, l, u, l, u, l, u1, l1, u1, l2],
-    u: false,
-    d: false
+  b: {
+    r: 'l',
+    l: 'r',
+    f: 'b',
+    b: 'f'
   }
+}
+/**
+ * 传入一个公式 自动生成所有面的公式
+ * @param {array} formula 魔方公式
+ * @returns 生成的所有公式
+ */
+function autoGenerateFormula (formula) {
+  const result = { r: false, l: false, f: false, b: false, u: false, d: false }
+  for (const key in relativePosition) {
+    const tmpStep = []
+    formula.forEach(item => {
+      switch (item[0]) {
+        case 'r':
+          tmpStep.push(newFormula(item[0], item[1], key))
+          break
+        case 'l':
+          tmpStep.push(newFormula(item[0], item[1], key))
+          break
+        case 'f':
+          tmpStep.push(newFormula(item[0], item[1], key))
+          break
+        case 'b':
+          tmpStep.push(newFormula(item[0], item[1], key))
+          break
+        default:
+          tmpStep.push(item)
+      }
+    })
+    result[key] = tmpStep
+  }
+  function newFormula (layer, deg, key) {
+    let newKey = relativePosition[key][layer]
+    newKey += deg === 90 ? '' : deg === -90 ? '1' : '2'
+    return operation[newKey]
+  }
+  return result
+}
+export const formula = { // 公式
+  centerLayerRight: autoGenerateFormula([u, r, u1, r1, u1, f1, u, f]), // 中间层 右
+  centerLayerLeft: autoGenerateFormula([u1, l1, u, l, u, f, u1, f1]),  // 中间层 左
+  centerLayerFlip: autoGenerateFormula([r, u2, r1, u, r, u2, r1, u, f1, u1, f]), // 中间层 翻转
+  topLayerOne: autoGenerateFormula([r1, f, r, f1, u1, f1, u, f]),  // 顶层 L
+  topLayerTwo: autoGenerateFormula([f, r, u, r1, u1, f1]),  // 顶层 横
+  topLayerFishOne: autoGenerateFormula([r1, u2, r, u, r1, u, r]),  // 顶面复原 一
+  topLayerFishTwo: autoGenerateFormula([r1, u2, r, u, r1, u1, r, u, r1, u, r]), // 顶面复原 二
+  topLayerCornerBlock: autoGenerateFormula([r, b1, r, f2, r1, b, r, f2, r2]),  // 顶层 角块
+  topLayerEdgeBlockOne: autoGenerateFormula([r, u1, r, u, r, u, r, u1, r1, u1, r2]),  // 顶层 棱块 正
 }
 export const formulaButton = [{ // 公式配置按钮
   key: 'centerLayerRight',
@@ -74,6 +94,10 @@ export const formulaButton = [{ // 公式配置按钮
   key: 'centerLayerLeft',
   active: false,
   name: '中间层 左'
+}, {
+  key: 'centerLayerFlip',
+  active: false,
+  name: '中间层 翻转'
 }, {
   key: 'topLayerOne',
   active: false,
@@ -85,7 +109,11 @@ export const formulaButton = [{ // 公式配置按钮
 }, {
   key: 'topLayerFishOne',
   active: false,
-  name: '顶面复原'
+  name: '顶面 一'
+}, {
+  key: 'topLayerFishTwo',
+  active: false,
+  name: '顶面 二'
 }, {
   key: 'topLayerCornerBlock',
   active: false,

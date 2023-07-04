@@ -4,7 +4,7 @@
     <!-- 魔方 -->
     <div
       class="box"
-      :style="`transform: rotateX(${configInformation.initialAngle.x + x}deg) rotateY(${configInformation.initialAngle.y + y}deg); transition: all ${transitionTime}s;`"
+      :style="`transform: translate(-50%, -50%) rotateX(${configInformation.initialAngle.x + rubikSCubeRotateConfig.x}deg) rotateY(${configInformation.initialAngle.y + rubikSCubeRotateConfig.y}deg); transition: all ${transitionTime}s;`"
       @mousedown="mouseDownHandler"
       >
       <!-- 悬浮在魔方每个面上的遮罩层 鼠标点击时传递相应的参数以控制魔方旋转 -->
@@ -13,8 +13,8 @@
         v-show="hideTip"
         v-for="data in tips"
         :key="data.id"
-        @click="!isImplementFormula && (SelectedFormula ? implementFormulaHanlder(formula[formulaName][data.id]) : controlRotateHandler(data.id, -90))"
-        @contextmenu.prevent="controlRotateHandler(data.id, 90)"
+        @click="clickHandler(data.id, true)"
+        @contextmenu.prevent="clickHandler(data.id, false)"
         :style="`width: ${configInformation.companyLength * 3}px; height: ${configInformation.companyLength * 3}px; transform: ${data.deg} translateZ(${151 + configInformation.companyLength % 100}px);`"
       >
         <img src="../assets/fangxiang.png" alt="">
@@ -87,7 +87,8 @@
           <li
             v-for="item in otherFormulaButton"
             :key="item.key"
-            @click="implementFormulaHanlder(otherFormula[item.key])"
+            @click="implementFormulaHanlder(otherFormula[item.key], false)"
+            @contextmenu.prevent="implementFormulaHanlder(otherFormula[item.key], true)"
           >
             <img :src="require('../assets/otherFormulaImg/' + item.key + '.png')" alt="寄">
             <span>{{ item.name }}</span>
@@ -247,7 +248,7 @@ export default {
       data,
       datas,
       tips,
-      allColor,
+      allColor: Object.freeze(allColor),
       operation: Object.freeze(operation), // 魔方所有操作方法
       formula: Object.freeze(formula), // 魔方公式
       formulaButton, // 魔方公式所对应的按钮
@@ -262,19 +263,21 @@ export default {
       outputText: '', // 文本形式输出的公式
       revolve: '', // 旋转时给旋转体加的样式
       intercept: true, // 单层旋转时的节流阀
-      x: 0, // 魔方整体旋转角度
-      y: 0,
-      downX: 0, // 记录鼠标按下时的坐标
-      downY: 0,
-      tmpX: 0, // 记录鼠标按下之前的旋转角度
-      tmpY: 0,
       clickIsInPage: false, // 判断是否在魔方的某一个面上按下鼠标
       hideTip: true, // 隐藏提示层
       transitionTime: 0.2, // 魔方整体旋转的过渡时间
       prohibitRotate: true, // 整体旋转的节流阀
       switchFormula: true, // 公式 or 其他
       // 配置信息
-      configInformation: {
+      rubikSCubeRotateConfig: { // 魔方旋转配置信息
+        x: 0, // 魔方整体旋转角度
+        y: 0,
+        downX: 0, // 记录鼠标按下时的坐标
+        downY: 0,
+        tmpX: 0, // 记录鼠标按下之前的旋转角度
+        tmpY: 0
+      },
+      configInformation: { // 魔方基础配置
         initialAngle, // 初始角度
         bgcColor, // 背景颜色
         companyLength,
@@ -293,7 +296,8 @@ export default {
     }
   },
   methods: {
-    controlRotateHandler (layer, deg, time = this.configInformation.rotateTime) { // 控制魔方单层旋转 核心逻辑
+    controlRotateHandler (layer, deg) { // 控制魔方单层旋转 核心逻辑
+      const time = (deg === 180 || deg === -180) ? this.configInformation.rotateTime * 2 : this.configInformation.rotateTime
       const tmpFormula = [layer, deg, time] // 保存传入的初始值 为后续的记录做准备
       return new Promise(resolve => {
         if (!(this.intercept && (this.prohibitRotate || this.isImplementFormula))) return
@@ -323,6 +327,13 @@ export default {
             break
         }
         this.intercept = false // 开启节流阀
+        if (time === 0) {
+          colorExchange(this.data, layer, deg) // 根据点击的层以及方式对两个魔方体的颜色进行变换
+          colorExchange(this.datas, layer, deg)
+          this.intercept = true // 关闭节流阀
+          resolve(tmpFormula)
+          return
+        }
         this._displaySwitch(false, layer) // 隐藏非旋转体被点击的层 隐藏旋转体未被点击的层
         this.revolve = `transition: all ${time / 1000}s; transform: rotate${axis}(${deg}deg);` // 通过过渡和3d转换来做出旋转的动画效果
         setTimeout(() => { // 此代码块会在旋转的动画效果结束后执行
@@ -337,6 +348,14 @@ export default {
         }, time + 5)
       })
     },
+    clickHandler (id, leftOrRight) { // 鼠标点击魔方的面
+      if (this.isImplementFormula) return
+      if (this.SelectedFormula) {
+        this.implementFormulaHanlder(this.formula[this.formulaName][id], !leftOrRight)
+      } else {
+        this.controlRotateHandler(id, leftOrRight ? -90 : 90)
+      }
+    },
     choiceFormulaHanlder (formulaName, data) { // 选中某一个公式
       this.SelectedFormula = true
       this.formulaName = formulaName
@@ -347,8 +366,8 @@ export default {
       this.SelectedFormula = false
       this.formulaButton.forEach(v => v.active = false)
     },
-    implementFormulaHanlder (formula) { // 通过选择的公式和点击的层选择公式并交给递归函数执行
-      if (this.reversal) {
+    implementFormulaHanlder (formula, isNeedReversal = this.reversal) { // 通过选择的公式和点击的层选择公式并交给递归函数执行
+      if (isNeedReversal) {
         formula = this._reversal(deepCopy(formula))
       }
       this._recursion(formula)
@@ -463,14 +482,14 @@ export default {
       switch(e.key) {
         case ' ':
           if (e.ctrlKey) this.menuMoveConfig.display = !this.menuMoveConfig.display
-          this.x = this.y = 0
+          else this.rubikSCubeRotateConfig.x = this.rubikSCubeRotateConfig.y = 0
           break
         case 'Escape':
           this._restore()
           break
         case 'Enter':
           this.disruptionHanlder()
-          // this._recursion(this._strToFormula('fulfdburbfldbrurublf'))
+          // this._recursion(this._strToFormula('bu2b1ubu2b1ur1u1r'))
           break
         case 'z':
           if (e.ctrlKey) this.rollBackHandler()
@@ -480,24 +499,24 @@ export default {
     _keyDownEvent (e) { // 键盘按下事件
       switch(e.key) {
         case 'ArrowUp':
-          this.x >= 45 || this.x++
+          this.rubikSCubeRotateConfig.x >= 45 || this.rubikSCubeRotateConfig.x++
           break
         case 'ArrowDown':
-          this.x <= -45 || this.x--
+          this.rubikSCubeRotateConfig.x <= -45 || this.rubikSCubeRotateConfig.x--
           break
         case 'ArrowLeft':
-          this.y <= -360 && this._recovery('y')
-          this.y--
+          this.rubikSCubeRotateConfig.y <= -360 && this._recovery('y')
+          this.rubikSCubeRotateConfig.y--
           break
         case 'ArrowRight':
-          this.y >= 360 && this._recovery('y')
-          this.y++
+          this.rubikSCubeRotateConfig.y >= 360 && this._recovery('y')
+          this.rubikSCubeRotateConfig.y++
           break
       }
     },
     _recovery (axis, callback, value = 0) { // 魔方回正
       this.transitionTime = 0
-      this[axis] = value
+      this.rubikSCubeRotateConfig[axis] = value
       setTimeout(() => {
         this.transitionTime = 0.2
         callback && callback()
@@ -505,21 +524,22 @@ export default {
     },
     mouseDownHandler (e) { // 鼠标在某个面上按下时触发
       this.clickIsInPage = true
-      this.downX = e.pageX // 记录鼠标按下时的坐标
-      this.downY = e.pageY
-      this.tmpX = this.x // 记录当前旋转的角度
-      this.tmpY = this.y
+      this.rubikSCubeRotateConfig.downX = e.pageX // 记录鼠标按下时的坐标
+      this.rubikSCubeRotateConfig.downY = e.pageY
+      this.rubikSCubeRotateConfig.tmpX = this.rubikSCubeRotateConfig.x // 记录当前旋转的角度
+      this.rubikSCubeRotateConfig.tmpY = this.rubikSCubeRotateConfig.y
       addEventListener('mousemove', this._mouseMove) // 监听鼠标移动事件
     },
     _mouseMove (e) { // 鼠标移动时的回调
       this.prohibitRotate = false // 节流阀 控制魔方整体旋转时阻止单层旋转和执行公式
-      let diffX = Math.floor((e.pageX - this.downX) / 2) // 记录鼠标移动后与按下时的坐标差值
-      let diffY = Math.floor(-(e.pageY - this.downY) / 2)
-      let tmpAndX = diffY + this.tmpX // 原始x轴旋转角度
-      this.x = tmpAndX < -45 ? -45 : tmpAndX > 45 ? 45 : tmpAndX // 限制x轴旋转的角度范围 -45到45之间
-      this.y = diffX + this.tmpY
+      let diffX = Math.floor((e.pageX - this.rubikSCubeRotateConfig.downX) / 2) // 记录鼠标移动后与按下时的坐标差值
+      let diffY = Math.floor(-(e.pageY - this.rubikSCubeRotateConfig.downY) / 2)
+      let tmpAndX = diffY + this.rubikSCubeRotateConfig.tmpX // 原始x轴旋转角度
+      this.rubikSCubeRotateConfig.x = tmpAndX < -45 ? -45 : tmpAndX > 45 ? 45 : tmpAndX // 限制x轴旋转的角度范围 -45到45之间
+      this.rubikSCubeRotateConfig.y = diffX + this.rubikSCubeRotateConfig.tmpY
     },
     _strToFormula (str) { // 字符串转公式
+      str = str.replace(/1/g, '\'')
       const formula = []
       for (let i = 0, n = str.length; i < n; i++) {
         const layer = str[i]
@@ -569,10 +589,10 @@ export default {
               simplifyFormula.push([step[0], 90])
             break
             case 180:
-              simplifyFormula.push([step[0], 180, 400])
+              simplifyFormula.push([step[0], 180])
             break
             case -180:
-              simplifyFormula.push([step[0], 180, 400])
+              simplifyFormula.push([step[0], 180])
             break
             case 90:
               simplifyFormula.push([step[0], 90])
@@ -600,7 +620,7 @@ export default {
       }
       if (!this.clickIsInPage) return
       removeEventListener('mousemove', this._mouseMove) // 注销鼠标移动的监听事件 节约性能以及防止不可预料的bug
-      let yValue = this.y
+      let yValue = this.rubikSCubeRotateConfig.y
       this._recovery('y', () => { this.prohibitRotate = true; this.clickIsInPage = false }, yValue >= 360 ? yValue % 360 : yValue <= -360 ? yValue % -360 : yValue) // 旋转角度超过360后自动回正 避免出现不可预期的bug
     })
   }
@@ -618,10 +638,13 @@ export default {
   height: 100%;
 }
 .box {
-  position: relative;
+  position: fixed;
   width: 300px;
   height: 300px;
-  margin: 200px auto 0;
+  top: 50%;
+  left: 50%;
+  /* transform: translate(-50%, -50%); */
+  /* margin: 300px auto 0; */
   transform-style: preserve-3d;
 }
 .tips {
@@ -683,7 +706,7 @@ export default {
 }
 .head>ul>li {
   height: 40px;
-  padding: 0 20px;
+  padding: 0 10px;
   font-size: 14px;
   text-align: center;
   line-height: 40px;
@@ -691,6 +714,9 @@ export default {
 }
 .head>ul>li:not(.move-control:hover):hover {
   background-color: rgba(255, 255, 255, .3);
+}
+.head>ul .move-control {
+  cursor: grab;
 }
 .body {
   padding: 10px;

@@ -1,15 +1,13 @@
 <template>
   <div class="container">
-    <div class="bg" :style="`background: ${configInformation.bgcColor};`"></div>
+    <div class="bg" :style="`background: ${configInformation.tmpBgcColor};`"></div>
     <!-- 魔方 -->
-    <div
-      class="box"
+    <div class="box"
       :style="`transform: translate(-50%, -50%) rotateX(${configInformation.initialAngle.x + rubikSCubeRotateConfig.x}deg) rotateY(${configInformation.initialAngle.y + rubikSCubeRotateConfig.y}deg); transition: all ${transitionTime}s;`"
       @mousedown="mouseDownHandler"
       >
       <!-- 悬浮在魔方每个面上的遮罩层 鼠标点击时传递相应的参数以控制魔方旋转 -->
-      <div
-        class="tips"
+      <div class="tips"
         v-show="hideTip"
         v-for="data in tips"
         :key="data.id"
@@ -19,12 +17,13 @@
       >
         <img src="../assets/fangxiang.png" alt="">
       </div>
-      <!-- 魔方主体(不参与旋转) -->
+      <!-- 魔方主体(静止) -->
       <div class="subject-one" :style="revolve">
         <div
           class="diamond"
           v-for="data in data"
-          :key="data.id" :style="`transform: translate3d(${data.deviation});`"
+          :key="data.id"
+          :style="`transform: translate3d(${data.deviation});`"
         >
           <div
             v-for="angle in data.angle"
@@ -32,10 +31,10 @@
             :key="angle.id"
             :title="`${data.id}-${angle.id} ${data.original}`"
             :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? angle.color : 'transparent'};`"
-          ></div>
+            ></div>
         </div>
       </div>
-      <!-- 魔方主体(负责旋转) -->
+      <!-- 魔方主体(旋转) -->
       <div class="subject-two">
         <div
           class="diamond"
@@ -46,21 +45,20 @@
           <div
             v-for="angle in data.angle"
             @click="angle.color = '#cdcbce'"
-            :key="angle.id" :title="`${data.id}-${angle.id} ${data.original}`"
+            :key="angle.id"
+            :title="`${data.id}-${angle.id} ${data.original}`"
             :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? angle.color : 'transparent'};`"
           ></div>
         </div>
       </div>
     </div>
-    <div
-      class="menu"
-      :style="`top: ${150 + menuMoveConfig.y}px; left: ${100 + menuMoveConfig.x}px;`"
+    <div class="menu" :style="`top: ${150 + menuMoveConfig.y}px; left: ${100 + menuMoveConfig.x}px;`"
       v-show="this.menuMoveConfig.display"
     >
       <div class="head">
         <ul class="nav">
           <li @click="switchFormula = true" :style="switchFormula && 'background: rgba(255, 255, 255, .5)'">还原公式</li>
-          <li @click="switchFormula = false" :style="switchFormula || 'background: rgba(255, 255, 255, .5)'">其他公式</li>
+          <li @click="switchFormula = false; cancelHanlder()" :style="switchFormula || 'background: rgba(255, 255, 255, .5)'">其他公式</li>
           <li
             class="move-control"
             style="flex: auto;"
@@ -98,7 +96,7 @@
       <div class="footer">
         <div class="control">
           <div @click="disruptionHanlder">打乱</div>
-          <div @click="reversal = !reversal" :style="reversal ? 'background: white;' : ''">逆转</div>
+          <!-- <div @click="reversal = !reversal" :style="reversal ? 'background: white;' : ''">逆转</div> -->
           <div @click="startRecordHandler">开始</div>
           <div @click="closeRecordHandler">结束</div>
           <div @click="rollBackHandler">撤销</div>
@@ -110,6 +108,27 @@
         <div class="formula">{{ outputText }}</div>
       </div>
     </div>
+    <div class="setting" v-show="settingConfig.display">
+      <div class="head">更改基本配置</div>
+      <div class="body">
+        <div class="speed">
+          <span>单层旋转速度</span>
+          <input type="text" v-model.number="configInformation.rotateTime">
+        </div>
+        <div class="bg-color">
+          <span>背景颜色</span>
+          <el-ColorPicker v-model="configInformation.tmpBgcColor" @active-change="bgColorChange"></el-ColorPicker>
+        </div>
+        <div class="other-color">
+          <ul>
+            <li v-for="(layer, key, index) in configInformation.tmpPageColor" :key="index">
+              <span>{{ key }}</span>
+              <el-ColorPicker v-model="configInformation.tmpPageColor[key]" @active-change="colorChange($event, key)"></el-ColorPicker>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -119,6 +138,7 @@ import deepCopy from '../utils/deepCopy.js'
 import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
 import pasteTextToClipboard from '../utils/pasteTextToClipboard.js'
 import colorExchange from '../utils/colorExchange.js'
+// import rgbToHexadecimal from '../utils/rgbToHexadecimal.js'
 
 export default {
   name: 'MagicSquare',
@@ -152,7 +172,7 @@ export default {
           if (td) { // 当前代码块执行一次后在本循环体就不再执行
             if (v[j] === 'u') {
               y = 0
-              color.top = pageColor.t // u
+              color.top = pageColor.u // u
               layer.u = true
               judge = false
               td = false
@@ -280,8 +300,12 @@ export default {
       configInformation: { // 魔方基础配置
         initialAngle, // 初始角度
         bgcColor, // 背景颜色
+        tmpBgcColor: bgcColor,
+        pageColor, // 页面颜色
+        tmpPageColor: deepCopy(pageColor),
         companyLength,
-        rotateTime // 魔方单层旋转所需的时间
+        rotateTime, // 魔方单层旋转所需的时间
+        tmpRotateTime: rotateTime
       },
       menuMoveConfig: { // 菜单配置信息
         display: true,
@@ -292,6 +316,9 @@ export default {
         downY: 0,
         moveX: 0,
         moveY: 0
+      },
+      settingConfig: { // 设置配置信息
+        display: true
       }
     }
   },
@@ -303,7 +330,7 @@ export default {
         if (!(this.intercept && (this.prohibitRotate || this.isImplementFormula))) return
         this.record && this._record(tmpFormula) // 记录
         let axis
-        switch (layer) { // 根据点击的的层调整旋转的轴以及方向
+        switch (layer) { // 根据点击的的面调整旋转的轴以及方向
           case 'r':
             axis = 'x'
             break
@@ -328,7 +355,7 @@ export default {
         }
         this.intercept = false // 开启节流阀
         if (time === 0) {
-          colorExchange(this.data, layer, deg) // 根据点击的层以及方式对两个魔方体的颜色进行变换
+          colorExchange(this.data, layer, deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
           colorExchange(this.datas, layer, deg)
           this.intercept = true // 关闭节流阀
           resolve(tmpFormula)
@@ -337,14 +364,14 @@ export default {
         this._displaySwitch(false, layer) // 隐藏非旋转体被点击的层 隐藏旋转体未被点击的层
         this.revolve = `transition: all ${time / 1000}s; transform: rotate${axis}(${deg}deg);` // 通过过渡和3d转换来做出旋转的动画效果
         setTimeout(() => { // 此代码块会在旋转的动画效果结束后执行
-          colorExchange(this.data, layer, deg) // 根据点击的层以及方式对两个魔方体的颜色进行变换
+          colorExchange(this.data, layer, deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
           colorExchange(this.datas, layer, deg)
           this.revolve = `` // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把旋转体复原到原本的旋转角度
           this._displaySwitch(true, layer) // 恢复旋转之前被隐藏的层
           setTimeout(() => {
             this.intercept = true // 关闭节流阀
             resolve(tmpFormula) // 执行完等一会后再告诉promise已经完成，防止无法预料的bug
-          }, 100);
+          }, 16);
         }, time + 5)
       })
     },
@@ -494,6 +521,9 @@ export default {
         case 'z':
           if (e.ctrlKey) this.rollBackHandler()
           break
+        case 'i':
+          if (e.ctrlKey) this.settingConfig.display = !this.settingConfig.display
+          break
       }
     },
     _keyDownEvent (e) { // 键盘按下事件
@@ -606,6 +636,36 @@ export default {
         }
       }
       return simplifyFormula
+    },
+    _updataPageColor(newColor, layer) {
+      // const arr = {u: 0, r: 1, d: 2, l: 3, f: 4, b: 5}
+      const oldColor = this.configInformation.tmpPageColor
+      let max = 0
+      const judge = layer === 'hide'
+      for (let i = 0, n = this.data.length; i < n; i++) {
+        for (let j = 0, n = this.data[i].angle.length; j < n; j++) {
+          const value = this.data[i].angle[j]
+          const values = this.datas[i].angle[j]
+          if (value.color === oldColor[layer]) {
+            value.color = values.color = newColor
+            max++
+            if (!judge) continue
+          }
+        }
+        if (!judge) {
+          if (max >= 9) {
+            oldColor[layer] = newColor
+            break
+          }
+        }
+      }
+      oldColor[layer] = newColor
+    },
+    colorChange (color, layer) {
+      this._updataPageColor(color, layer)
+    },
+    bgColorChange (newColor) {
+      this.configInformation.tmpBgcColor = newColor
     }
   },
   mounted () {
@@ -695,16 +755,16 @@ export default {
   position: absolute;
   box-shadow: 0 0 10px 5px rgba(0, 0, 0, .2);
 }
-.head {
+.menu .head {
   border-bottom: 1px solid white;
 }
-.head>ul {
+.menu .head>ul {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
 }
-.head>ul>li {
+.menu .head>ul>li {
   height: 40px;
   padding: 0 10px;
   font-size: 14px;
@@ -712,22 +772,22 @@ export default {
   line-height: 40px;
   transition: all .2s;
 }
-.head>ul>li:not(.move-control:hover):hover {
+.menu .head>ul>li:not(.move-control:hover):hover {
   background-color: rgba(255, 255, 255, .3);
 }
-.head>ul .move-control {
+.menu .head>ul .move-control {
   cursor: grab;
 }
-.body {
+.menu .body {
   padding: 10px;
 }
-.body>ul {
+.menu .body>ul {
   display: flex;
   flex-flow: row wrap;
   align-items: center;
   justify-content: space-around;
 }
-.body>ul>li {
+.menu .body>ul>li {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -738,30 +798,30 @@ export default {
   font-size: 12px;
   transition: all .2s;
 }
-.body>ul>li:hover {
+.menu .body>ul>li:hover {
   background-color: rgba(255, 255, 255, .5);
 }
-.body>ul .cancel {
+.menu .body>ul .cancel {
   font-size: 20px;
   justify-content: space-evenly;
 }
-.body>ul>li>img {
+.menu .body>ul>li>img {
   display: block;
   width: 70%;
   height: 70%;
   margin: auto;
 }
-.footer {
+.menu .footer {
   padding: 10px;
   border-top: 1px solid white;
 }
-.footer .control {
+.menu .footer .control {
   display: flex;
   flex-flow: row wrap;
   align-items: center;
   justify-content: space-around;
 }
-.footer .control>div {
+.menu .footer .control>div {
   width: 60px;
   height: 30px;
   margin-top: 10px;
@@ -771,10 +831,16 @@ export default {
   transition: all .2s;
   background: #40b6b7;
 }
-.footer .control>div:hover {
+.menu .footer .control>div:hover {
   background-color: rgba(255, 255, 255, .5);
 }
-.footer .formula {
+.menu .footer .formula {
   word-wrap: break-word;
+}
+.setting {
+  position: fixed;
+  top: 27%;
+  left: 70%;
+  z-index: 1;
 }
 </style>

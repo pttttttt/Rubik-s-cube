@@ -130,7 +130,7 @@ export const otherFormula = { // 其他公式
   flower: [r2, l2, u2, d2, f2, b2],
   changeCenterBlock: [r1, l, u1, d, f1, b, r1, l]
 }
-export const otherFormulaButton = [{ // 其他公司配置按钮
+export const otherFormulaButton = [{ // 其他公式配置按钮
   key: 'changeCenterBlock',
   name: '交换中心块'
 }, {

@@ -1,5 +1,5 @@
 const defaultColor = {
-    t: '#fef12b',
+    u: '#fef12b',
     d: '#ffffff',
     r: '#dd1416',
     l: '#ff9c13',
@@ -8,7 +8,7 @@ const defaultColor = {
     hide: '#efefef'
 }
 const whiteBlack = {
-    t: 'black',
+    u: 'black',
     d: 'white',
     r: 'black',
     l: 'white',
@@ -17,7 +17,7 @@ const whiteBlack = {
     hide: 'transparent'
 }
 const fresh = {
-    t: '#ffffff',
+    u: '#ffffff',
     d: '#ffffff',
     r: '#ff9c13',
     l: '#ff9c13',
@@ -26,7 +26,7 @@ const fresh = {
     hide: '#efefef'
 }
 const greenWhite = {
-    t: '#7bc700',
+    u: '#7bc700',
     d: '#ffffff',
     r: '#7bc700',
     l: '#ffffff',

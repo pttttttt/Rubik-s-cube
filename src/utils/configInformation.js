@@ -14,7 +14,7 @@ const whiteBlack = {
     l: 'white',
     f: 'black',
     b: 'white',
-    hide: 'transparent'
+    hide: 'black'
 }
 const fresh = {
     u: '#ffffff',
@@ -34,9 +34,18 @@ const greenWhite = {
     b: '#ffffff',
     hide: 'transparent'
 }
-defaultColor, whiteBlack, fresh, greenWhite
+const transparent = {
+  u: 'rgba(0, 0, 0, .1)',
+  d: 'rgba(0, 0, 0, .1)',
+  f: 'rgba(0, 0, 0, .1)',
+  b: 'rgba(0, 0, 0, .1)',
+  r: 'rgba(0, 0, 0, .1)',
+  l: 'rgba(0, 0, 0, .1)',
+  hide: 'rgba(0, 0, 0, .1)'
+}
+defaultColor, whiteBlack, fresh, greenWhite, transparent
 export const bgcColor = '#7bc700' // 背景颜色
-export const pageColor = defaultColor // 魔方各个面的颜色
+export const pageColor = transparent // 魔方各个面的颜色
 export const rotateTime = 200 // 魔方单层旋转 90度 所需时间
 export const initialAngle = { // 魔方初始角度
     x: -15,

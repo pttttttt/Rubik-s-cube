@@ -30,7 +30,7 @@
             @click="angle.color = '#cdcbce'"
             :key="angle.id"
             :title="`${data.id}-${angle.id} ${data.original}`"
-            :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? angle.color : 'transparent'};`"
+            :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? configInformation.pageColor[angle.color] : 'transparent'};`"
             ></div>
         </div>
       </div>
@@ -47,7 +47,7 @@
             @click="angle.color = '#cdcbce'"
             :key="angle.id"
             :title="`${data.id}-${angle.id} ${data.original}`"
-            :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? angle.color : 'transparent'};`"
+            :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? configInformation.pageColor[angle.color] : 'transparent'};`"
           ></div>
         </div>
       </div>
@@ -95,17 +95,19 @@
       </div>
       <div class="footer">
         <div class="control">
-          <div @click="disruptionHanlder">打乱</div>
+          <div @click="disruptionHanlder" title="随机生成打乱公式并执行">打乱</div>
           <!-- <div @click="reversal = !reversal" :style="reversal ? 'background: white;' : ''">逆转</div> -->
-          <div @click="startRecordHandler">开始</div>
-          <div @click="closeRecordHandler">结束</div>
-          <div @click="rollBackHandler">撤销</div>
-          <div @click="_keyUpEvent({ key: ' ' })">复位</div>
-          <div @click="_restore">复原</div>
-          <div @click="hideTip = false">隐藏</div>
-          <div @click="hideTip = true">显示</div>
+          <div @click="startRecordHandler" title="开始记录步骤">开始</div>
+          <div @click="closeRecordHandler" title="结束记录并在控制台输出步骤">结束</div>
+          <div @click="rollBackHandler" title="撤回上一步，只能撤回记录过的步骤">撤销</div>
+          <div @click="_keyUpEvent({ key: ' ' })" title="复原魔方整体旋转角度">复位</div>
+          <div @click="_restore" title="强制复原，无公式">复原</div>
+          <div @click="_autoRecovery()" title="自动生成公式复原">自动</div>
+          <div @click="_autoRecoveryFormula()" title="只生成公式，不复原">公式</div>
+          <div @click="hideTip = false" title="隐藏魔方表面的遮罩层">隐藏</div>
+          <div @click="hideTip = true" title="显示魔方表面的遮罩层">显示</div>
         </div>
-        <div class="formula">{{ outputText }}</div>
+        <div class="formula" @click="pasteTextToClipboard(outputText)">{{ outputText }}</div>
       </div>
     </div>
     <div class="setting" v-show="settingConfig.display">
@@ -114,6 +116,10 @@
         <div class="speed">
           <span>单层旋转速度</span>
           <input type="text" v-model.number="configInformation.rotateTime">
+        </div>
+        <div class="formula">
+          <input type="text" v-model="settingConfig.formula">
+          <button @click="implement">执行</button>
         </div>
         <div class="bg-color">
           <span>背景颜色</span>
@@ -159,7 +165,7 @@ export default {
     const datas = deepCopy(data)
     function _optimizationDataHandler(arr) { // 魔方光有位置信息并不能够较好地渲染 还需要进一步的处理
       const tmpData = []
-      let color, judge, x, y, z, layer, rgba = pageColor.hide
+      let color, judge, x, y, z, layer, rgba = 'hide'
       arr.forEach((v, i) => {
         x = '' // 记录当前块的偏移量
         y = ''
@@ -172,14 +178,14 @@ export default {
           if (td) { // 当前代码块执行一次后在本循环体就不再执行
             if (v[j] === 'u') {
               y = 0
-              color.top = pageColor.u // u
+              color.top = 'u' // u
               layer.u = true
               judge = false
               td = false
               continue
             } else if (v[j] === 'd') {
               y = companyLength * 2
-              color.down = pageColor.d // d
+              color.down = 'd' // d
               layer.d = true
               judge = false
               td = false
@@ -191,7 +197,7 @@ export default {
           if (rl) {
             if (v[j] === 'r') {
               x = companyLength * 2
-              color.right = pageColor.r // r
+              color.right = 'r' // r
               color.left = rgba
               layer.r = true
               judge = false
@@ -199,7 +205,7 @@ export default {
               continue
             } else if (v[j] === 'l') {
               x = 0
-              color.left = pageColor.l // l
+              color.left = 'l' // l
               layer.l = true
               judge = false
               rl = false
@@ -211,14 +217,14 @@ export default {
           if (fb) {
             if (v[j] === 'f') {
               z = companyLength
-              color.front = pageColor.f // f
+              color.front = 'f' // f
               layer.f = true
               judge = false
               fb = false
               continue
             } else if (v[j] === 'b') {
               z = -companyLength
-              color.after = pageColor.b // b
+              color.after = 'b' // b
               layer.b = true
               judge = false
               fb = false
@@ -233,7 +239,7 @@ export default {
           layer, // 位置信息 （布尔值）
           display: true, // 是否显示 （在旋转体旋转时使用）
           id: i, // 当前块在整个魔方体数组的下标
-          original: v, // 原始位置信息 （目前没用上）
+          original: v, // 原始位置信息 （自动还原时使用）
           angle: [{ // 当前块每个面的配置信息 按 上右下左前后 排列
             deg: 'rotateX(90deg)', // 旋转角度
             id: 0, // key
@@ -276,6 +282,8 @@ export default {
       otherFormulaButton,
       SelectedFormula: false, // 当前是否选中公式
       isImplementFormula: false, // 当前是否正在执行公式
+      isAutoRecovery: false, // 是否正在自动复原
+      isAutoRecoveryFormula: false, // 是否正在生成复原公式
       reversal: false, // 是否逆转公式
       formulaName: '', // 当前选中公式的名称
       record: false, // 是否开始记录
@@ -318,7 +326,8 @@ export default {
         moveY: 0
       },
       settingConfig: { // 设置配置信息
-        display: true
+        display: false,
+        formula: 'u',
       }
     }
   },
@@ -356,7 +365,9 @@ export default {
         this.intercept = false // 开启节流阀
         if (time === 0) {
           colorExchange(this.data, layer, deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
-          colorExchange(this.datas, layer, deg)
+          if (!this.isAutoRecoveryFormula) {
+            colorExchange(this.datas, layer, deg)
+          }
           this.intercept = true // 关闭节流阀
           resolve(tmpFormula)
           return
@@ -371,7 +382,7 @@ export default {
           setTimeout(() => {
             this.intercept = true // 关闭节流阀
             resolve(tmpFormula) // 执行完等一会后再告诉promise已经完成，防止无法预料的bug
-          }, 16);
+          }, 50);
         }, time + 5)
       })
     },
@@ -423,13 +434,14 @@ export default {
       this.outputText = ''
       this.record = true
     },
-    closeRecordHandler () { // 结束
+    closeRecordHandler (judge = false) { // 结束
       const formula = this._strToFormula(this.outputText) // 将记录的字符串转换为公式
       const simplifyFormula = this._simplifyStepsHanlder(formula) // 简化公式
       const str = this._formulaToStr(simplifyFormula, true) // 公式转字符串
-      pasteTextToClipboard(str) // 将最终公式粘贴到剪贴板
-      console.log('原始公式：' + '\'' + this.outputText.replace(/'/g, '\\\'') + '\'') // 控制台输出原始公式
-      console.log('简化公式：' + '\'' + this._formulaToStr(simplifyFormula).replace(/'/g, '\\\'') + '\'') // 控制台输出简化公式
+      const simplifyStr = this._formulaToStr(simplifyFormula) // 公式转字符串
+      this.pasteTextToClipboard(judge ? simplifyStr : str) // 将最终公式粘贴到剪贴板
+      console.log('原始公式：' + this.outputText) // 控制台输出原始公式
+      console.log('简化公式：' + simplifyStr) // 控制台输出简化公式
       this.record = false
     },
     rollBackHandler () { // 撤销
@@ -469,27 +481,32 @@ export default {
       return dstArr
     },
     _recursion (tmpFormula) { // 递归执行传入的公式
-      if (!this.prohibitRotate) return // 魔方整体旋转时禁止单层旋转
+      if (!this.prohibitRotate && !this.isAutoRecovery) return // 魔方整体旋转时禁止单层旋转
       if (!tmpFormula.length) return // 公式不能为空
       this.isImplementFormula = true // 打开执行公式的节流阀
       const formula = [...tmpFormula]
-      const fn = promise => {
-        promise.then(() => {
-          const next = this.controlRotateHandler(...formula.shift())
-          if (formula.length) fn(next)
-          else {
-            next.then(() => this.isImplementFormula = false) // 当最后一个步骤执行完成后关闭节流阀
-            return next
-          }
-        })
-      }
-      if (formula.length === 1) { // 边界判断 当公式中只有一步操作时
-        const next = this.controlRotateHandler(...formula.shift())
-        next.then(() => this.isImplementFormula = false)
-        return next
-      } else {
-        return fn(this.controlRotateHandler(...formula.shift()))
-      }
+      return new Promise(res => {
+        const fn = promise => {
+          promise.then(() => {
+            const next = this.controlRotateHandler(...formula.shift())
+            if (formula.length) fn(next)
+            else {
+              next.then(data => { // 当最后一个步骤执行完成后关闭节流阀
+                this.isImplementFormula = false
+                res(data)
+              })
+            }
+          })
+        }
+        if (formula.length === 1) { // 当公式中只有一步操作时
+          this.controlRotateHandler(...formula.shift()).then(data => {
+            this.isImplementFormula = false
+            res(data)
+          })
+        } else {
+          fn(this.controlRotateHandler(...formula.shift()))
+        }
+      })
     },
     _displaySwitch (boolean, layer) { // 旋转时控制魔方显示部分
       this.data.forEach((v, i) => v.layer[layer] ? this.datas[i].display = boolean : v.display = boolean)
@@ -504,6 +521,517 @@ export default {
       }
       fn(this.data)
       fn(this.datas)
+    },
+    _autoRecovery (data = this.data) { // 自动复原
+      const that = this
+      that.isAutoRecovery = true
+      that.startRecordHandler()
+      const allFormula = that.formula
+      const { r2, l2, f, f1, f2, b, b1, b2, u, u1, u2 } = that.operation
+      const subscript = {
+        topEdge: [1, 3, 5, 7], // 顶层棱块下标
+        centerEdge: [9, 11, 13, 15], // 中间层棱块下标
+        bottomAndCenterEdge: [9, 11, 13, 15, 19, 21, 23, 25], // 底层和中间层棱块下标
+        topCorner: [0, 2, 4, 6], // 顶层角块下标
+        bottomCorner: [18, 20, 22, 24], // 底层角块下标
+      }
+
+      // 底层十字架复原 第一步
+      function bottomCrossOne (res) { // 从底层和中间层的棱块中寻找有白色面的块
+        let formula = [] // 需执行的公式
+        for (let i = 0; i < subscript.bottomAndCenterEdge.length; i++) { // 遍历出所需棱块的下标
+          if (formula.length !== 0) break // 如在之前的循环中已找到目标块，则退出循环
+          let item = data[subscript.bottomAndCenterEdge[i]]
+          for (let j = 0; j < item.angle.length; j++) { // 遍历每一个块的6个面
+            const tmpColor = item.angle[j].color // 当前面的颜色所映射的字符
+            if (tmpColor !== 'd') continue // 不是底部颜色（默认白色） 退出循环
+            let str = item.original // 当前块的位置信息
+            if (/f/.test(str)) {
+              rightOrLeft(str, () => {
+                formula = free(1, [f1])
+              }, () => {
+                formula = free(1, [f])
+              }, () => {
+                formula = free(1, [f2])
+              })
+            } else if (/b/.test(str)) {
+              rightOrLeft(str, () => {
+                formula = free(5, [b])
+              }, () => {
+                formula = free(5, [b1])
+              }, () => {
+                formula = free(5, [b2])
+              })
+            } else {
+              rightOrLeft(str, () => {
+                formula = free(7, [r2])
+              }, () => {
+                formula = free(3, [l2])
+              })
+            }
+          }
+        }
+        if (formula.length === 0) return res()
+        that._recursion(formula, false).then(() => {
+          bottomCrossOne(res)
+        })
+      }
+      function free (index, formula) {
+        if (judge(index)) return formula
+        let indexArr = subscript.topEdge.filter(v => v !== index)
+        for (let i = 0; i < indexArr.length; i++) {
+          if (judge(indexArr[i])) {
+            let tmpFormula = []
+            let index2 = indexArr[i]
+            if (index - index2 === 2) tmpFormula = [u]
+            else if (index - index2 === -2) tmpFormula = [u1]
+            else tmpFormula = [u2]
+            return [...tmpFormula, ...formula]
+          }
+        }
+
+        function judge (index) {
+          for (let i = 0; i < 6; i++) {
+            let tmpColor = data[index].angle[i].color
+            if (tmpColor === 'd') {
+              return false
+            }
+          }
+          return true
+        }
+      }
+      function rightOrLeft (str, callbackRight, callbackLeft, callbackOther) {
+        if (/r/.test(str)) {
+          callbackRight && callbackRight()
+        } else if (/l/.test(str)) {
+          callbackLeft && callbackLeft()
+        } else {
+          callbackOther && callbackOther()
+        }
+      }
+
+      // 底层十字架复原 第二步
+      function bottomCrossTwo (res) {
+        const formula = []
+        for (let i = 0; i < subscript.topEdge.length; i++) {
+          if (formula.length !== 0) break
+          const item = data[subscript.topEdge[i]]
+          let judge = false
+          let tmpColor = ''
+          let color = ''
+          for (let j = 0; j < item.angle.length; j++) {
+            tmpColor = item.angle[j].color
+            if (tmpColor === 'd') judge = true
+            if (tmpColor !== 'hide' && tmpColor !== 'd') {
+              color = tmpColor
+              if (judge) break
+            }
+          }
+          if (!judge) continue
+          switch (color) {
+            case 'f':
+              formula.push(...topRotate(item.id - 1), ...judgeInvert(item, color))
+              break
+            case 'r':
+              formula.push(...topRotate(item.id - 7), ...judgeInvert(item, color))
+              break
+            case 'b':
+              formula.push(...topRotate(item.id - 5), ...judgeInvert(item, color))
+              break
+            case 'l':
+              formula.push(...topRotate(item.id - 3), ...judgeInvert(item, color))
+              break
+            default:
+              break
+          }
+        }
+        if (formula.length === 0) return res()
+        that._recursion(formula, false).then(() => {
+          bottomCrossTwo(res)
+        })
+      }
+      function topRotate (diff) {
+        switch (diff) {
+          case 2:
+            return [u1]
+          case 4:
+            return [u2]
+          case 6:
+            return [u]
+          case -2:
+            return [u]
+          case -4:
+            return [u2]
+          case -6:
+            return [u1]
+          case 0:
+            return []
+        }
+      }
+      function judgeInvert (item, layer) {
+        if (item.angle[0].color !== 'd') {
+          return allFormula.a[layer]
+        }
+        return [that.operation[layer + '2']]
+      }
+
+      // 底层角块 复位
+      function bottomCornerPosition (res) {
+        const formula = []
+        for (let i = 0; i < subscript.topCorner.length; i++) {
+          if (formula.length !== 0) break
+          const item = data[subscript.topCorner[i]]
+          let judge = false
+          let color = []
+          for (let j = 0; j < item.angle.length; j++) {
+            const tmpColor = item.angle[j].color
+            if (tmpColor === 'd') judge = true
+            if (tmpColor !== 'hide' && tmpColor !== 'd') {
+              color.push(tmpColor)
+            }
+          }
+          if (!judge) continue
+          if (color.includes('f') && color.includes('r')) {
+            formula.push(...topRotate(item.id - 0), ...allFormula.b['f'])
+          } else if (color.includes('r') && color.includes('b')) {
+            formula.push(...topRotate(item.id - 6), ...allFormula.b['r'])
+          } else if (color.includes('b') && color.includes('l')) {
+            formula.push(...topRotate(item.id - 4), ...allFormula.b['b'])
+          } else if (color.includes('l') && color.includes('f')) {
+            formula.push(...topRotate(item.id - 2), ...allFormula.b['l'])
+          }
+        }
+        if (formula.length !== 0) {
+          that._recursion(formula, false).then(() => bottomCornerPosition(res))
+        } else {
+          const errorPosition = positionError(subscript.bottomCorner)
+          if (!errorPosition) return res()
+          const id = errorPosition.id
+          switch (id) {
+            case 18:
+              formula.push(...allFormula.b['f'])
+              break
+            case 20:
+              formula.push(...allFormula.b['l'])
+              break
+            case 22:
+              formula.push(...allFormula.b['b'])
+              break
+            case 24:
+              formula.push(...allFormula.b['r'])
+              break
+          }
+          that._recursion(formula, false).then(() => bottomCornerPosition(res))
+        }
+      }
+      // 底层角块 复原
+      function bottomCorner (res) {
+        const formula = []
+        if (data[18].angle[2].color !== 'd') formula.push(...allFormula.c['f'])
+        if (data[20].angle[2].color !== 'd') formula.push(...allFormula.c['l'])
+        if (data[22].angle[2].color !== 'd') formula.push(...allFormula.c['b'])
+        if (data[24].angle[2].color !== 'd') formula.push(...allFormula.c['r'])
+        if (formula.length === 0) return res()
+        that._recursion(formula, false).then(() => bottomCorner(res))
+      }
+
+      // 中间层棱块 复位
+      function centerEdgePosition (res) {
+        const formula = []
+        for (let i = 0; i < subscript.topEdge.length; i++) {
+          if (formula.length !== 0) break
+          const item = data[subscript.topEdge[i]]
+          let judge = true
+          let colorArr = []
+          for (let j = 0; j < item.angle.length; j++) {
+            const tmpColor = item.angle[j].color
+            if (tmpColor === 'u') {
+              judge = false
+              break
+            }
+            if (tmpColor !== 'hide') colorArr.push(tmpColor)
+          }
+          if (!judge) continue
+          if (colorArr.includes('f') && colorArr.includes('r')) {
+            formula.push(...topRotate(item.id - 1), ...allFormula.centerLayerRight['f'])
+          } else if (colorArr.includes('r') && colorArr.includes('b')) {
+            formula.push(...topRotate(item.id - 7), ...allFormula.centerLayerRight['r'])
+          } else if (colorArr.includes('b') && colorArr.includes('l')) {
+            formula.push(...topRotate(item.id - 5), ...allFormula.centerLayerRight['b'])
+          } else if (colorArr.includes('l') && colorArr.includes('f')) {
+            formula.push(...topRotate(item.id - 3), ...allFormula.centerLayerRight['l'])
+          }
+        }
+        if (formula.length !== 0) {
+          that._recursion(formula, false).then(() => centerEdgePosition(res))
+        } else {
+          let errorPosition = positionError(subscript.centerEdge)
+          if (!errorPosition) return res()
+          const id = errorPosition.id
+          switch (id) {
+            case 9:
+              formula.push(...allFormula.centerLayerRight['f'])
+              break
+            case 11:
+              formula.push(...allFormula.centerLayerRight['l'])
+              break
+            case 13:
+              formula.push(...allFormula.centerLayerRight['b'])
+              break
+            case 15:
+              formula.push(...allFormula.centerLayerRight['r'])
+              break
+          }
+          that._recursion(formula, false).then(() => centerEdgePosition(res))
+        }
+      }
+
+      // 中间层棱块 复原
+      function center (res) {
+        const formula = []
+        if (data[9].angle[4].color !== 'f') formula.push(...allFormula.centerLayerFlip['f'])
+        if (data[11].angle[4].color !== 'f') formula.push(...allFormula.centerLayerFlip['l'])
+        if (data[13].angle[5].color !== 'b') formula.push(...allFormula.centerLayerFlip['b'])
+        if (data[15].angle[5].color !== 'b') formula.push(...allFormula.centerLayerFlip['r'])
+        if (formula.length === 0) return res()
+        that._recursion(formula, false).then(() => res())
+      }
+
+      function positionError (arr) { // 判断块是否在自己原本的位置
+        for (let i = 0; i < arr.length; i++) {
+          const item = data[arr[i]]
+          const correctPosition = item.original.split('')
+          const currentPosition = []
+          for (let j = 0; j < item.angle.length; j++) {
+            if (currentPosition.length >= 3) break
+            const tmpColor = item.angle[j].color
+            if (tmpColor !== 'hide') {
+              currentPosition.push(tmpColor)
+            }
+          }
+          const merge = new Set([...correctPosition, ...currentPosition])
+          if (merge.size !== correctPosition.length) {
+            return { id: item.id, color: currentPosition }
+          }
+        }
+        return false
+      }
+
+      // 顶层十字架 复位
+      function topCrossPosition (res) {
+        const formula = []
+        let counter = []
+        if (data[1].angle[0].color === 'u') counter.push(1)
+        if (data[3].angle[0].color === 'u') counter.push(3)
+        if (data[5].angle[0].color === 'u') counter.push(5)
+        if (data[7].angle[0].color === 'u') counter.push(7)
+        let sum = 0
+        switch (counter.length) {
+          case 4:
+            return res() // 已经复位
+          case 0:
+            formula.push(...allFormula.topLayerOne['f'], ...allFormula.topLayerTwo['f'])
+            break
+          default:
+            sum = counter[0] + counter[1]
+            switch (sum) {
+              case 6:
+                formula.push(...allFormula.topLayerTwo['r'])
+                break
+              case 10:
+                formula.push(...allFormula.topLayerTwo['f'])
+                break
+              case 4:
+                formula.push(...allFormula.topLayerOne['r'])
+                break
+              case 12:
+                formula.push(...allFormula.topLayerOne['l'])
+                break
+              case 8:
+                if (counter[0] === 3) {
+                  formula.push(...allFormula.topLayerOne['f'])
+                } else {
+                  formula.push(...allFormula.topLayerOne['b'])
+                }
+              break
+            }
+            break
+        }
+        that._recursion(formula).then(() => res())
+      }
+
+      // 顶面复原
+      function topSurface (res) {
+        const formula = []
+        const counter = []
+        if (data[0].angle[0].color !== 'u') {
+          counter.push({id: 0, clockwise: data[0].angle[1].color === 'u'})
+        }
+        if (data[2].angle[0].color !== 'u') {
+          counter.push({id: 2, clockwise: data[2].angle[4].color === 'u'})
+        }
+        if (data[4].angle[0].color !== 'u') {
+          counter.push({id: 4, clockwise: data[4].angle[3].color === 'u'})
+        }
+        if (data[6].angle[0].color !== 'u') {
+          counter.push({id: 6, clockwise: data[6].angle[5].color === 'u'})
+        }
+        let sum
+        switch (counter.length) {
+          case 0:
+            return res()
+          case 2:
+            sum = counter[0].id + counter[1].id
+            if (sum === 6 || sum === 8) {
+              let tmpId = counter[0].clockwise ? counter[0].id : counter[1].id
+              formula.push(...allFormula.topLayerFishOne[data[tmpId + 1].original[1]])
+            } else {
+              if (counter[0].id === 6) {
+                formula.push(...(counter[0].clockwise ? allFormula.topLayerFishOne['f'] : allFormula.topLayerFishOne['r']))
+              } else {
+                if (counter[0].clockwise) {
+                  formula.push(...allFormula.topLayerFishOne[data[counter[1].id + 1].original[1]])
+                } else {
+                  formula.push(...allFormula.topLayerFishOne[data[counter[0].id + 1].original[1]])
+                }
+              }
+            }
+            break
+          case 4:
+            if (data[0].angle[4].color === 'u' && data[2].angle[4].color === 'u') formula.push(...allFormula.topLayerFishOne['f'])
+            else if (data[2].angle[3].color === 'u' && data[4].angle[3].color === 'u') formula.push(...allFormula.topLayerFishOne['l'])
+            else if (data[4].angle[5].color === 'u' && data[6].angle[5].color === 'u') formula.push(...allFormula.topLayerFishOne['b'])
+            else formula.push(...allFormula.topLayerFishOne['r'])
+            break
+          case 3:
+            sum = counter[0].id + counter[1].id + counter[2].id
+            formula.push(...allFormula.topLayerFishOne[data[13 - sum].original[1]])
+            break
+        }
+        that._recursion(formula).then(() => topSurface(res))
+      }
+
+      // 顶层角块 复位
+      function topCorner (res) {
+        const formula = []
+        const counter = []
+        if (data[0].angle[4].color === data[2].angle[4].color) counter.push('f')
+        if (data[2].angle[3].color === data[4].angle[3].color) counter.push('l')
+        if (data[4].angle[5].color === data[6].angle[5].color) counter.push('b')
+        if (data[6].angle[1].color === data[0].angle[1].color) counter.push('r')
+        if (counter.length === 0) formula.push(...allFormula.topLayerCornerBlock['f'])
+        else if (counter.length === 1) formula.push(...allFormula.topLayerCornerBlock[counter[0]])
+        else {
+          let tmpStep = []
+          switch (data[0].angle[4].color) {
+            case 'l':
+              tmpStep = u
+              break
+            case 'b':
+              tmpStep = u2
+              break
+            case 'r':
+              tmpStep = u1
+              break
+          }
+          return that._recursion([tmpStep]).then(() => res())
+        }
+        that._recursion(formula).then(() => topCorner(res))
+      }
+
+      // 顶层棱块 复位
+      function topEdgePosition (res) {
+        const formula = []
+        const color = [
+          data[1].angle[4].color,
+          data[3].angle[3].color,
+          data[5].angle[5].color,
+          data[7].angle[1].color
+        ]
+        const position = ['f', 'l', 'b', 'r']
+        const counter = []
+        for (let i = 0; i < position.length; i++) {
+          if (position[i] === color[i]) counter.push(position[i])
+          if (counter.length >= 2) return res()
+        }
+        if (counter.length === 1) {
+          let layer
+          switch (counter[0]) {
+            case 'f':
+              layer = 'b'
+              break
+            case 'l':
+              layer = 'r'
+              break
+            case 'b':
+              layer = 'f'
+              break
+            case 'r':
+              layer = 'l'
+              break
+          }
+          formula.push(...allFormula.topLayerEdgeBlockOne[layer])
+        } else {
+          formula.push(...allFormula.topLayerEdgeBlockOne['f'])
+        }
+        that._recursion(formula).then(() => topEdgePosition(res))
+      }
+
+      // new Promise(res => bottomCrossOne(res)).then(() => {
+      //   new Promise(res => bottomCrossTwo(res)).then(() => {
+      //     new Promise(res => bottomCornerPosition(res)).then(() => {
+      //       new Promise(res => bottomCorner(res)).then(() => {
+      //         new Promise(res => centerEdgePosition(res)).then(() => {
+      //           new Promise(res => center(res)).then(() => {
+      //             new Promise(res => topCrossPosition(res)).then(() => {
+      //               new Promise(res => topSurface(res)).then(() => {
+      //                 new Promise(res => topCorner(res)).then(() => {
+      //                   new Promise(res => topEdgePosition(res)).then(() => {
+      //                     that.isAutoRecovery = false
+      //                     that.closeRecordHandler()
+      //                     console.log('结束')
+      //                   })
+      //                 })
+      //               })
+      //             })
+      //           })
+      //         })
+      //       })
+      //     })
+      //   })
+      // })
+      return new Promise(res => {
+        function simulateAsyncTask(handler) {
+          return new Promise(resolve => {
+            handler(resolve)
+          })
+        }
+        const tasks = [bottomCrossOne, bottomCrossTwo, bottomCornerPosition, bottomCorner, centerEdgePosition, center, topCrossPosition, topSurface, topCorner, topEdgePosition ]
+        function runTasksSequentially(tasks) {
+          if (tasks.length === 0) {
+            that.isAutoRecovery = false
+            that.closeRecordHandler(true)
+            res()
+            return
+          }
+          const task = tasks.shift()
+          simulateAsyncTask(task).then(() => {
+            runTasksSequentially(tasks)
+          })
+        }
+        runTasksSequentially(tasks)
+      })
+    },
+    _autoRecoveryFormula () {
+      const that = this
+      that.isAutoRecoveryFormula = true
+      const tmpTime = that.configInformation.rotateTime
+      that.configInformation.rotateTime = 0
+      that._autoRecovery().then(() => {
+        that.configInformation.rotateTime = tmpTime
+        that.data = deepCopy(that.datas)
+        that.isAutoRecoveryFormula = true
+      })
     },
     _keyUpEvent (e) { // 键盘弹起事件
       switch(e.key) {
@@ -593,7 +1121,7 @@ export default {
           else strArr.push(value[0])
         } else {
           str += value[0]
-          if (value[1] === -90) str += '\''
+          if (value[1] === -90) str += "'"
           else if (value[1] === 180 || value[1] === -180) str += '2'
         }
       })
@@ -608,7 +1136,12 @@ export default {
           simplifyFormula.push(step)
           continue
         }
-        const sum = step[1] + tmpStep[1] - 0
+        let sum 
+        try {
+          sum = step[1] + tmpStep[1] - 0
+        } catch (err) {
+          console.log(originaFlormula)
+        }
         if (step[0] === tmpStep[0]) {
             simplifyFormula.pop()
             switch (sum) {
@@ -662,11 +1195,17 @@ export default {
       oldColor[layer] = newColor
     },
     colorChange (color, layer) {
-      this._updataPageColor(color, layer)
+      // console.log(color, layer)
+      this.configInformation.pageColor[layer] = color
+      // this._updataPageColor(color, layer)
     },
     bgColorChange (newColor) {
       this.configInformation.tmpBgcColor = newColor
-    }
+    },
+    implement () { // 执行输入的公式
+      this._recursion(this._strToFormula(this.settingConfig.formula))
+    },
+    pasteTextToClipboard
   },
   mounted () {
     addEventListener('keyup', e => this._keyUpEvent(e))
@@ -689,7 +1228,7 @@ export default {
 
 <style scoped>
 .container {
-  border: 1px solid transparent;
+  /* border: 1px solid transparent; */
   position: relative;
 }
 .bg {
@@ -836,6 +1375,9 @@ export default {
 }
 .menu .footer .formula {
   word-wrap: break-word;
+}
+.menu .footer .formula:hover {
+  background-color: rgba(0, 0, 0, .1);
 }
 .setting {
   position: fixed;

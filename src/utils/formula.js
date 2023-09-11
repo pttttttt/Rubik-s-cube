@@ -85,6 +85,9 @@ export const formula = { // 公式
   topLayerFishTwo: autoGenerateFormula([r1, u2, r, u, r1, u1, r, u, r1, u, r]), // 顶面复原 二
   topLayerCornerBlock: autoGenerateFormula([r, b1, r, f2, r1, b, r, f2, r2]),  // 顶层 角块
   topLayerEdgeBlockOne: autoGenerateFormula([r, u1, r, u, r, u, r, u1, r1, u1, r2]),  // 顶层 棱块 正
+  a: autoGenerateFormula([u, r1, l, f1, r, l1]), // 自动复原所需公式
+  b: autoGenerateFormula([f1, u1, f]), // 自动复原所需公式
+  c: autoGenerateFormula([r, u, r1, u1, r, u, r1]), // 自动复原所需公式
 }
 export const formulaButton = [{ // 公式配置按钮
   key: 'centerLayerRight',

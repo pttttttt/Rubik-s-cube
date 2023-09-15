@@ -35,13 +35,56 @@ const greenWhite = {
     hide: 'transparent'
 }
 const transparent = {
-  u: 'rgba(0, 0, 0, .1)',
-  d: 'rgba(0, 0, 0, .1)',
-  f: 'rgba(0, 0, 0, .1)',
-  b: 'rgba(0, 0, 0, .1)',
-  r: 'rgba(0, 0, 0, .1)',
-  l: 'rgba(0, 0, 0, .1)',
-  hide: 'rgba(0, 0, 0, .1)'
+  u: 'rgb(254, 241, 43)',
+  d: 'rgb(254, 254, 254)',
+  f: 'rgb(20, 93, 173)',
+  b: 'rgb(82, 184, 2)',
+  r: 'rgb(221, 20, 22)',
+  l: 'rgb(255, 156, 19)',
+  hide: 'rgb(255, 255, 255)',
+  // border: 'rgb(0, 0, 0)',
+  transparency: {
+    u: '.5',
+    d: '.5',
+    f: '.5',
+    b: '.5',
+    r: '.5',
+    l: '.5',
+    hide: '.2',
+    // border: '1',
+    get uOverlap () {
+      const tmp = 1 - this.u
+      return 1 - tmp * tmp
+    },
+    get dOverlap () {
+      const tmp = 1 - this.d
+      return 1 - tmp * tmp
+    },
+    get fOverlap () {
+      const tmp = 1 - this.f
+      return 1 - tmp * tmp
+    },
+    get bOverlap () {
+      const tmp = 1 - this.b
+      return 1 - tmp * tmp
+    },
+    get rOverlap () {
+      const tmp = 1 - this.r
+      return 1 - tmp * tmp
+    },
+    get lOverlap () {
+      const tmp = 1 - this.l
+      return 1 - tmp * tmp
+    },
+    get hideOverlap () {
+      const tmp = 1 - this.hide
+      return 1 - tmp * tmp
+    }
+    // get borderOverlap () {
+    //   const tmp = 1 - this.border
+    //   return 1 - tmp * tmp
+    // }
+  }
 }
 defaultColor, whiteBlack, fresh, greenWhite, transparent
 export const bgcColor = '#7bc700' // 背景颜色

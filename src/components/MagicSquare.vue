@@ -1,6 +1,7 @@
 <template>
   <div class="container">
-    <div class="bg" :style="`background: ${configInformation.tmpBgcColor};`"></div>
+    <div class="bg"></div>
+     <!-- :style="`background: ${configInformation.tmpBgcColor};`" -->
     <!-- 魔方 -->
     <div class="box"
       :style="`transform: translate(-50%, -50%) rotateX(${configInformation.initialAngle.x + rubikSCubeRotateConfig.x}deg) rotateY(${configInformation.initialAngle.y + rubikSCubeRotateConfig.y}deg); transition: all ${transitionTime}s;`"
@@ -30,8 +31,9 @@
             @click="angle.color = '#cdcbce'"
             :key="angle.id"
             :title="`${data.id}-${angle.id} ${data.original}`"
-            :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? configInformation.pageColor[angle.color] : 'transparent'};`"
+            :style="style(data, angle)"
             ></div>
+            <!-- :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? configInformation.pageColor[angle.color] : 'transparent'}; opacity: ${configInformation.pageColor.transparency ? angle.color === 'hide' ? configInformation.pageColor.transparency.hide : configInformation.pageColor.transparency.layer : '1'};`" -->
         </div>
       </div>
       <!-- 魔方主体(旋转) -->
@@ -47,8 +49,9 @@
             @click="angle.color = '#cdcbce'"
             :key="angle.id"
             :title="`${data.id}-${angle.id} ${data.original}`"
-            :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? configInformation.pageColor[angle.color] : 'transparent'};`"
-          ></div>
+            :style="style(data, angle)"
+            ></div>
+            <!-- :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? configInformation.pageColor[angle.color] : 'transparent'}; opacity: ${configInformation.pageColor.transparency ? angle.color === 'hide' ? configInformation.pageColor.transparency.hide : configInformation.pageColor.transparency.layer : '1'};`" -->
         </div>
       </div>
     </div>
@@ -127,10 +130,12 @@
         </div>
         <div class="other-color">
           <ul>
-            <li v-for="(layer, key, index) in configInformation.tmpPageColor" :key="index">
-              <span>{{ key }}</span>
-              <el-ColorPicker v-model="configInformation.tmpPageColor[key]" @active-change="colorChange($event, key)"></el-ColorPicker>
-            </li>
+            <template v-for="(layer, key, index) in configInformation.tmpPageColor">
+              <li :key="index" v-if="key !== 'transparency'">
+                <span>{{ key }}</span>
+                <el-ColorPicker v-model="configInformation.tmpPageColor[key]" @active-change="colorChange($event, key)"></el-ColorPicker>
+              </li>
+            </template>
           </ul>
         </div>
       </div>
@@ -290,7 +295,8 @@ export default {
       step: [], // 当前已经执行过的步骤
       outputText: '', // 文本形式输出的公式
       revolve: '', // 旋转时给旋转体加的样式
-      intercept: true, // 单层旋转时的节流阀
+      intercept: true, // 单层旋转时的节流阀 有延时
+      rotateOrNot: false, // 判断是否正在旋转 无延时
       clickIsInPage: false, // 判断是否在魔方的某一个面上按下鼠标
       hideTip: true, // 隐藏提示层
       transitionTime: 0.2, // 魔方整体旋转的过渡时间
@@ -303,7 +309,8 @@ export default {
         downX: 0, // 记录鼠标按下时的坐标
         downY: 0,
         tmpX: 0, // 记录鼠标按下之前的旋转角度
-        tmpY: 0
+        tmpY: 0,
+        isThrottled: false // 魔方整体旋转节流阀
       },
       configInformation: { // 魔方基础配置
         initialAngle, // 初始角度
@@ -327,9 +334,11 @@ export default {
       },
       settingConfig: { // 设置配置信息
         display: false,
-        formula: 'u',
+        formula: 'u'
       }
     }
+  },
+  computed: {
   },
   methods: {
     controlRotateHandler (layer, deg) { // 控制魔方单层旋转 核心逻辑
@@ -372,13 +381,15 @@ export default {
           resolve(tmpFormula)
           return
         }
+        this.rotateOrNot = true
         this._displaySwitch(false, layer) // 隐藏非旋转体被点击的层 隐藏旋转体未被点击的层
         this.revolve = `transition: all ${time / 1000}s; transform: rotate${axis}(${deg}deg);` // 通过过渡和3d转换来做出旋转的动画效果
         setTimeout(() => { // 此代码块会在旋转的动画效果结束后执行
           colorExchange(this.data, layer, deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
           colorExchange(this.datas, layer, deg)
-          this.revolve = `` // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把旋转体复原到原本的旋转角度
+          this.revolve = '' // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把旋转体复原到原本的旋转角度
           this._displaySwitch(true, layer) // 恢复旋转之前被隐藏的层
+          this.rotateOrNot = false
           setTimeout(() => {
             this.intercept = true // 关闭节流阀
             resolve(tmpFormula) // 执行完等一会后再告诉promise已经完成，防止无法预料的bug
@@ -1089,6 +1100,11 @@ export default {
       addEventListener('mousemove', this._mouseMove) // 监听鼠标移动事件
     },
     _mouseMove (e) { // 鼠标移动时的回调
+      if (this.rubikSCubeRotateConfig.isThrottled) return
+      this.rubikSCubeRotateConfig.isThrottled = true
+      setTimeout(() => { // 节流
+        this.rubikSCubeRotateConfig.isThrottled = false
+      }, 50);
       this.prohibitRotate = false // 节流阀 控制魔方整体旋转时阻止单层旋转和执行公式
       let diffX = Math.floor((e.pageX - this.rubikSCubeRotateConfig.downX) / 2) // 记录鼠标移动后与按下时的坐标差值
       let diffY = Math.floor(-(e.pageY - this.rubikSCubeRotateConfig.downY) / 2)
@@ -1205,6 +1221,16 @@ export default {
     implement () { // 执行输入的公式
       this._recursion(this._strToFormula(this.settingConfig.formula))
     },
+    style (data, angle) {
+      const transform = `transform: ${angle.deg} translateZ(50px);`
+      const pageColor = this.configInformation.pageColor
+      const backgroundColor = `background: ${data.display ? pageColor[angle.color] : 'transparent'};`
+      const key = this.rotateOrNot ? 'Overlap' : ''
+      const opacity = `opacity: ${pageColor.transparency ? pageColor.transparency[angle.color + key] : '1'};`
+      // 魔方每个面加上boder后，对cpu的消耗飙升，并且出现遮罩层被挡住和魔方单层旋转表现出现问题
+      // const border = `border: 1px solid ${data.display ? pageColor.border : 'transparent'};`
+      return transform + backgroundColor + opacity// + border
+    },
     pasteTextToClipboard
   },
   mounted () {
@@ -1235,6 +1261,9 @@ export default {
   position: fixed;
   width: 100%;
   height: 100%;
+  background: #134E5E;  /* fallback for old browsers */
+  background: -webkit-linear-gradient(to right, #71B280, #134E5E);  /* Chrome 10-25, Safari 5.1-6 */
+  background: linear-gradient(to right, #71B280, #134E5E); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
 }
 .box {
   position: fixed;
@@ -1245,7 +1274,16 @@ export default {
   /* transform: translate(-50%, -50%); */
   /* margin: 300px auto 0; */
   transform-style: preserve-3d;
+  /* animation: abc 10s infinite; */
 }
+/* @keyframes abc {
+  0% {
+    transform: rotateX(0deg) rotateY(0deg);
+  }
+  100% {
+    transform: rotateX(360deg) rotateY(360deg);
+  }
+} */
 .tips {
   position: absolute;
   top: -0;
@@ -1281,12 +1319,14 @@ export default {
   position: absolute;
   width: 100px;
   height: 100px;
+  /* box-sizing: border-box; */
 }
 .subject-one .diamond div,
 .subject-two .diamond div {
   position: absolute;
   width: 100px;
   height: 100px;
+  /* border: 1px solid black; */
 }
 /* 菜单 */
 .menu {

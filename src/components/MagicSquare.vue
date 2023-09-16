@@ -944,6 +944,8 @@ export default {
             case 'r':
               tmpStep = u1
               break
+            case 'f':
+              return res()
           }
           return that._recursion([tmpStep]).then(() => res())
         }
@@ -1033,7 +1035,7 @@ export default {
         runTasksSequentially(tasks)
       })
     },
-    _autoRecoveryFormula () {
+    _autoRecoveryFormula () { // 自动生成复原公式，但不复原
       const that = this
       that.isAutoRecoveryFormula = true
       const tmpTime = that.configInformation.rotateTime
@@ -1054,7 +1056,8 @@ export default {
           this._restore()
           break
         case 'Enter':
-          this.disruptionHanlder()
+          if (e.shiftKey) this._autoRecovery()
+          else this.disruptionHanlder()
           // this._recursion(this._strToFormula('bu2b1ubu2b1ur1u1r'))
           break
         case 'z':
@@ -1152,15 +1155,10 @@ export default {
           simplifyFormula.push(step)
           continue
         }
-        let sum 
-        try {
-          sum = step[1] + tmpStep[1] - 0
-        } catch (err) {
-          console.log(originaFlormula)
-        }
+        const sum = step[1] + tmpStep[1] - 0
         if (step[0] === tmpStep[0]) {
-            simplifyFormula.pop()
-            switch (sum) {
+          simplifyFormula.pop()
+          switch (sum) {
             case 270:
               simplifyFormula.push([step[0], -90])
             break
@@ -1186,32 +1184,7 @@ export default {
       }
       return simplifyFormula
     },
-    _updataPageColor(newColor, layer) {
-      // const arr = {u: 0, r: 1, d: 2, l: 3, f: 4, b: 5}
-      const oldColor = this.configInformation.tmpPageColor
-      let max = 0
-      const judge = layer === 'hide'
-      for (let i = 0, n = this.data.length; i < n; i++) {
-        for (let j = 0, n = this.data[i].angle.length; j < n; j++) {
-          const value = this.data[i].angle[j]
-          const values = this.datas[i].angle[j]
-          if (value.color === oldColor[layer]) {
-            value.color = values.color = newColor
-            max++
-            if (!judge) continue
-          }
-        }
-        if (!judge) {
-          if (max >= 9) {
-            oldColor[layer] = newColor
-            break
-          }
-        }
-      }
-      oldColor[layer] = newColor
-    },
     colorChange (color, layer) {
-      // console.log(color, layer)
       this.configInformation.pageColor[layer] = color
       // this._updataPageColor(color, layer)
     },
@@ -1221,7 +1194,7 @@ export default {
     implement () { // 执行输入的公式
       this._recursion(this._strToFormula(this.settingConfig.formula))
     },
-    style (data, angle) {
+    style (data, angle) { // 每个面的样式
       const transform = `transform: ${angle.deg} translateZ(50px);`
       const pageColor = this.configInformation.pageColor
       const backgroundColor = `background: ${data.display ? pageColor[angle.color] : 'transparent'};`
@@ -1231,7 +1204,7 @@ export default {
       // const border = `border: 1px solid ${data.display ? pageColor.border : 'transparent'};`
       return transform + backgroundColor + opacity// + border
     },
-    pasteTextToClipboard
+    pasteTextToClipboard // 将传入的文本复制到剪贴板
   },
   mounted () {
     addEventListener('keyup', e => this._keyUpEvent(e))

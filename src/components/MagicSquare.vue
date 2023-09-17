@@ -99,14 +99,14 @@
       <div class="footer">
         <div class="control">
           <div @click="disruptionHanlder" title="随机生成打乱公式并执行">打乱</div>
+          <div @click="_restore" title="强制复原，无公式">复原</div>
+          <div @click="_autoRecovery()" title="自动生成公式复原">自动</div>
+          <div @click="_autoRecoveryFormula()" title="只生成公式，不复原">公式</div>
           <!-- <div @click="reversal = !reversal" :style="reversal ? 'background: white;' : ''">逆转</div> -->
           <div @click="startRecordHandler" title="开始记录步骤">开始</div>
           <div @click="closeRecordHandler" title="结束记录并在控制台输出步骤">结束</div>
           <div @click="rollBackHandler" title="撤回上一步，只能撤回记录过的步骤">撤销</div>
           <div @click="_keyUpEvent({ key: ' ' })" title="复原魔方整体旋转角度">复位</div>
-          <div @click="_restore" title="强制复原，无公式">复原</div>
-          <div @click="_autoRecovery()" title="自动生成公式复原">自动</div>
-          <div @click="_autoRecoveryFormula()" title="只生成公式，不复原">公式</div>
           <div @click="hideTip = false" title="隐藏魔方表面的遮罩层">隐藏</div>
           <div @click="hideTip = true" title="显示魔方表面的遮罩层">显示</div>
         </div>
@@ -333,7 +333,7 @@ export default {
         moveY: 0
       },
       settingConfig: { // 设置配置信息
-        display: false,
+        display: true,
         formula: 'u'
       }
     }
@@ -493,10 +493,10 @@ export default {
     },
     _recursion (tmpFormula) { // 递归执行传入的公式
       if (!this.prohibitRotate && !this.isAutoRecovery) return // 魔方整体旋转时禁止单层旋转
-      if (!tmpFormula.length) return // 公式不能为空
-      this.isImplementFormula = true // 打开执行公式的节流阀
-      const formula = [...tmpFormula]
       return new Promise(res => {
+        if (!tmpFormula.length) return res()// 公式不能为空
+        this.isImplementFormula = true // 打开执行公式的节流阀
+        const formula = [...tmpFormula]
         const fn = promise => {
           promise.then(() => {
             const next = this.controlRotateHandler(...formula.shift())
@@ -550,6 +550,14 @@ export default {
       // 底层十字架复原 第一步
       function bottomCrossOne (res) { // 从底层和中间层的棱块中寻找有白色面的块
         let formula = [] // 需执行的公式
+        if (!positionError([19, 21, 23, 25])) {
+          if (data[19].angle[2].color !== 'd') formula.push(...allFormula.a['f'])
+          if (data[21].angle[2].color !== 'd') formula.push(...allFormula.a['l'])
+          if (data[23].angle[2].color !== 'd') formula.push(...allFormula.a['b'])
+          if (data[25].angle[2].color !== 'd') formula.push(...allFormula.a['r'])
+          that._recursion(formula).then(() => res())
+          return
+        }
         for (let i = 0; i < subscript.bottomAndCenterEdge.length; i++) { // 遍历出所需棱块的下标
           if (formula.length !== 0) break // 如在之前的循环中已找到目标块，则退出循环
           let item = data[subscript.bottomAndCenterEdge[i]]
@@ -1024,9 +1032,11 @@ export default {
           if (tasks.length === 0) {
             that.isAutoRecovery = false
             that.closeRecordHandler(true)
+            that.$message.success('完成')
             res()
             return
           }
+          // const step = [ '底层十字架复原', '底层十字架复原', '底层角块', '底层角块', '中间层棱块', '中间层棱块', '顶层十字架', '顶面复原', '顶层角块', '顶层棱块' ]
           const task = tasks.shift()
           simulateAsyncTask(task).then(() => {
             runTasksSequentially(tasks)

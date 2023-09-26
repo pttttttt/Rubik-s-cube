@@ -42,16 +42,15 @@ const transparent = {
   r: 'rgb(221, 20, 22)',
   l: 'rgb(255, 156, 19)',
   hide: 'rgb(255, 255, 255)',
-  // border: 'rgb(0, 0, 0)',
+  border: 'rgb(0, 0, 0)',
   transparency: {
-    u: '.5',
-    d: '.5',
-    f: '.5',
-    b: '.5',
-    r: '.5',
-    l: '.5',
-    hide: '.2',
-    // border: '1',
+    u: 0.5,
+    d: 0.5,
+    f: 0.5,
+    b: 0.5,
+    r: 0.5,
+    l: 0.5,
+    hide: 0.2,
     get uOverlap () {
       const tmp = 1 - this.u
       return 1 - tmp * tmp
@@ -79,11 +78,16 @@ const transparent = {
     get hideOverlap () {
       const tmp = 1 - this.hide
       return 1 - tmp * tmp
+    },
+    set whole (newValue) {
+      for (const key in this) {
+        if (key === 'hide') continue
+        this[key] = newValue
+      }
+    },
+    get whole () {
+      return this.u
     }
-    // get borderOverlap () {
-    //   const tmp = 1 - this.border
-    //   return 1 - tmp * tmp
-    // }
   }
 }
 defaultColor, whiteBlack, fresh, greenWhite, transparent

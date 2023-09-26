@@ -1,10 +1,15 @@
 import Vue from 'vue'
-import { ColorPicker, Message } from 'element-ui'
+import { ColorPicker, Message, Switch, Slider, Input, Collapse, CollapseItem } from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
 import App from './App'
 
 Vue.config.productionTip = false
 Vue.use(ColorPicker)
+Vue.use(Switch)
+Vue.use(Slider)
+Vue.use(Input)
+Vue.use(Collapse)
+Vue.use(CollapseItem)
 
 Vue.component(Message.name, Message)
 Vue.prototype.$message = Message;

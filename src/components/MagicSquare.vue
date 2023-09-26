@@ -26,14 +26,15 @@
           :key="data.id"
           :style="`transform: translate3d(${data.deviation});`"
         >
-          <div
-            v-for="angle in data.angle"
-            @click="angle.color = '#cdcbce'"
-            :key="angle.id"
-            :title="`${data.id}-${angle.id} ${data.original}`"
-            :style="style(data, angle)"
-            ></div>
-            <!-- :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? configInformation.pageColor[angle.color] : 'transparent'}; opacity: ${configInformation.pageColor.transparency ? angle.color === 'hide' ? configInformation.pageColor.transparency.hide : configInformation.pageColor.transparency.layer : '1'};`" -->
+          <template v-for="angle in data.angle">
+            <div
+              v-if="!(settingConfig.hideInside && angle.color === 'hide')"
+              @click="angle.color = 'hide'"
+              :key="angle.id"
+              :title="`${data.id}-${angle.id} ${data.original}`"
+              :style="style(data, angle)"
+              ></div>
+          </template>
         </div>
       </div>
       <!-- 魔方主体(旋转) -->
@@ -44,14 +45,15 @@
           :key="data.id"
           :style="`transform: translate3d(${data.deviation});`"
         >
-          <div
-            v-for="angle in data.angle"
-            @click="angle.color = '#cdcbce'"
-            :key="angle.id"
-            :title="`${data.id}-${angle.id} ${data.original}`"
-            :style="style(data, angle)"
-            ></div>
-            <!-- :style="`transform: ${angle.deg} translateZ(50px); background: ${data.display ? configInformation.pageColor[angle.color] : 'transparent'}; opacity: ${configInformation.pageColor.transparency ? angle.color === 'hide' ? configInformation.pageColor.transparency.hide : configInformation.pageColor.transparency.layer : '1'};`" -->
+          <template v-for="angle in data.angle">
+            <div
+              v-if="!(settingConfig.hideInside && angle.color === 'hide')"
+              @click="angle.color = 'hide'"
+              :key="angle.id"
+              :title="`${data.id}-${angle.id} ${data.original}`"
+              :style="style(data, angle)"
+              ></div>
+          </template>
         </div>
       </div>
     </div>
@@ -109,6 +111,8 @@
           <div @click="_keyUpEvent({ key: ' ' })" title="复原魔方整体旋转角度">复位</div>
           <div @click="hideTip = false" title="隐藏魔方表面的遮罩层">隐藏</div>
           <div @click="hideTip = true" title="显示魔方表面的遮罩层">显示</div>
+          <div @click="menuMoveConfig.display = false" title="关闭此菜单，使用'ctrl+空格键'再次打开">关闭</div>
+          <div @click="settingConfig.display = !settingConfig.display" title="打开设置面板">设置</div>
         </div>
         <div class="formula" @click="pasteTextToClipboard(outputText)">{{ outputText }}</div>
       </div>
@@ -121,23 +125,52 @@
           <input type="text" v-model.number="configInformation.rotateTime">
         </div>
         <div class="formula">
+          <span>自定义公式</span>
           <input type="text" v-model="settingConfig.formula">
           <button @click="implement">执行</button>
         </div>
+        <div>
+          <span>隐藏内部</span>
+          <el-switch v-model="settingConfig.hideInside" active-color="#13ce66"></el-switch>
+        </div>
+        <div>
+          <span>隐藏边框</span>
+          <el-switch v-model="settingConfig.hideBorder" active-color="#13ce66"></el-switch>
+        </div>
+        <div>
+          <span>启用透明颜色</span>
+          <el-switch v-model="settingConfig.enableTransparentColor" active-color="#13ce66"></el-switch>
+        </div>
         <div class="bg-color">
           <span>背景颜色</span>
-          <el-ColorPicker v-model="configInformation.tmpBgcColor" @active-change="bgColorChange"></el-ColorPicker>
+          <el-ColorPicker v-model="configInformation.bgcColor" @active-change="bgColorChange"></el-ColorPicker>
         </div>
-        <div class="other-color">
-          <ul>
-            <template v-for="(layer, key, index) in configInformation.tmpPageColor">
-              <li :key="index" v-if="key !== 'transparency'">
-                <span>{{ key }}</span>
-                <el-ColorPicker v-model="configInformation.tmpPageColor[key]" @active-change="colorChange($event, key)"></el-ColorPicker>
+        <el-collapse v-model="settingConfig.activeName" accordion class="collapse">
+          <el-collapse-item title="颜色" name="1" class="other-color">
+            <ul>
+              <template v-for="(layer, key, index) in configInformation.pageColor">
+                <li :key="index" v-if="key !== 'transparency'">
+                  <el-ColorPicker v-model="configInformation.pageColor[key]" @active-change="colorChange($event, key)"></el-ColorPicker>
+                  <span>{{ settingConfig.mapping[key] }}</span>
+                </li>
+              </template>
+            </ul>
+          </el-collapse-item>
+          <el-collapse-item title="透明度" name="2" class="transparency">
+            <ul>
+              <li>
+                <span>所有面</span>
+                <el-slider v-model="configInformation.pageColor.transparency.whole" :disabled="!settingConfig.enableTransparentColor" :min="0" :max="1" :step="0.01"></el-slider>
               </li>
-            </template>
-          </ul>
-        </div>
+              <template v-for="(name, key, index) in settingConfig.mapping">
+                <li :key="index" v-if="key !== 'border'">
+                  <span>{{ name }}</span>
+                  <el-slider v-model="configInformation.pageColor.transparency[key]" :disabled="!settingConfig.enableTransparentColor" :min="0" :max="1" :step="0.01"></el-slider>
+                </li>
+              </template>
+            </ul>
+          </el-collapse-item>
+        </el-collapse>
       </div>
     </div>
   </div>
@@ -149,7 +182,6 @@ import deepCopy from '../utils/deepCopy.js'
 import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
 import pasteTextToClipboard from '../utils/pasteTextToClipboard.js'
 import colorExchange from '../utils/colorExchange.js'
-// import rgbToHexadecimal from '../utils/rgbToHexadecimal.js'
 
 export default {
   name: 'MagicSquare',
@@ -315,12 +347,9 @@ export default {
       configInformation: { // 魔方基础配置
         initialAngle, // 初始角度
         bgcColor, // 背景颜色
-        tmpBgcColor: bgcColor,
         pageColor, // 页面颜色
-        tmpPageColor: deepCopy(pageColor),
         companyLength,
-        rotateTime, // 魔方单层旋转所需的时间
-        tmpRotateTime: rotateTime
+        rotateTime // 魔方单层旋转所需的时间
       },
       menuMoveConfig: { // 菜单配置信息
         display: true,
@@ -333,8 +362,13 @@ export default {
         moveY: 0
       },
       settingConfig: { // 设置配置信息
-        display: true,
-        formula: 'u'
+        display: false,
+        formula: 'u',
+        hideInside: true, // 是否隐藏魔方内部的元素
+        hideBorder: false, // 是否隐藏边框 
+        enableTransparentColor: true, // 是否开启透明颜色
+        activeName: 1, // 控制折叠面板
+        mapping: Object.freeze({ u: '顶面', d: '底面', f: '正面', b: '背面', r: '右侧', l: '左侧', hide: '内部', border: '边框' }) // 魔方各个面的中文映射
       }
     }
   },
@@ -494,7 +528,7 @@ export default {
     _recursion (tmpFormula) { // 递归执行传入的公式
       if (!this.prohibitRotate && !this.isAutoRecovery) return // 魔方整体旋转时禁止单层旋转
       return new Promise(res => {
-        if (!tmpFormula.length) return res()// 公式不能为空
+        if (!tmpFormula.length) return res()// 公式为空则直接完成
         this.isImplementFormula = true // 打开执行公式的节流阀
         const formula = [...tmpFormula]
         const fn = promise => {
@@ -1068,7 +1102,6 @@ export default {
         case 'Enter':
           if (e.shiftKey) this._autoRecovery()
           else this.disruptionHanlder()
-          // this._recursion(this._strToFormula('bu2b1ubu2b1ur1u1r'))
           break
         case 'z':
           if (e.ctrlKey) this.rollBackHandler()
@@ -1102,7 +1135,7 @@ export default {
       setTimeout(() => {
         this.transitionTime = 0.2
         callback && callback()
-      }, 0);
+      }, 0)
     },
     mouseDownHandler (e) { // 鼠标在某个面上按下时触发
       this.clickIsInPage = true
@@ -1117,7 +1150,7 @@ export default {
       this.rubikSCubeRotateConfig.isThrottled = true
       setTimeout(() => { // 节流
         this.rubikSCubeRotateConfig.isThrottled = false
-      }, 50);
+      }, 50)
       this.prohibitRotate = false // 节流阀 控制魔方整体旋转时阻止单层旋转和执行公式
       let diffX = Math.floor((e.pageX - this.rubikSCubeRotateConfig.downX) / 2) // 记录鼠标移动后与按下时的坐标差值
       let diffY = Math.floor(-(e.pageY - this.rubikSCubeRotateConfig.downY) / 2)
@@ -1199,7 +1232,7 @@ export default {
       // this._updataPageColor(color, layer)
     },
     bgColorChange (newColor) {
-      this.configInformation.tmpBgcColor = newColor
+      this.configInformation.bgcColor = newColor
     },
     implement () { // 执行输入的公式
       this._recursion(this._strToFormula(this.settingConfig.formula))
@@ -1209,10 +1242,9 @@ export default {
       const pageColor = this.configInformation.pageColor
       const backgroundColor = `background: ${data.display ? pageColor[angle.color] : 'transparent'};`
       const key = this.rotateOrNot ? 'Overlap' : ''
-      const opacity = `opacity: ${pageColor.transparency ? pageColor.transparency[angle.color + key] : '1'};`
-      // 魔方每个面加上boder后，对cpu的消耗飙升，并且出现遮罩层被挡住和魔方单层旋转表现出现问题
-      // const border = `border: 1px solid ${data.display ? pageColor.border : 'transparent'};`
-      return transform + backgroundColor + opacity// + border
+      const opacity = this.settingConfig.enableTransparentColor ? `opacity: ${pageColor.transparency ? pageColor.transparency[angle.color + key] : '1'};` : ''
+      const border = this.settingConfig.hideBorder ? '' : `border: 1px solid ${data.display ? pageColor.border : 'transparent'};`
+      return transform + backgroundColor + opacity + border
     },
     pasteTextToClipboard // 将传入的文本复制到剪贴板
   },
@@ -1237,7 +1269,6 @@ export default {
 
 <style scoped>
 .container {
-  /* border: 1px solid transparent; */
   position: relative;
 }
 .bg {
@@ -1254,19 +1285,8 @@ export default {
   height: 300px;
   top: 50%;
   left: 50%;
-  /* transform: translate(-50%, -50%); */
-  /* margin: 300px auto 0; */
   transform-style: preserve-3d;
-  /* animation: abc 10s infinite; */
 }
-/* @keyframes abc {
-  0% {
-    transform: rotateX(0deg) rotateY(0deg);
-  }
-  100% {
-    transform: rotateX(360deg) rotateY(360deg);
-  }
-} */
 .tips {
   position: absolute;
   top: -0;
@@ -1302,14 +1322,13 @@ export default {
   position: absolute;
   width: 100px;
   height: 100px;
-  /* box-sizing: border-box; */
 }
 .subject-one .diamond div,
 .subject-two .diamond div {
   position: absolute;
   width: 100px;
   height: 100px;
-  /* border: 1px solid black; */
+  box-sizing: border-box;
 }
 /* 菜单 */
 .menu {
@@ -1404,8 +1423,57 @@ export default {
 }
 .setting {
   position: fixed;
-  top: 27%;
+  top: 7%;
   left: 70%;
   z-index: 1;
+}
+.setting .body {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: 5px;
+}
+.setting .body>div:not(.collapse) {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: 10px;
+}
+.setting .body>div>span {
+  display: block;
+  width: 100px;
+  text-align: right;
+  font-size: 16px;
+}
+.setting .body .other-color ul {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+.setting .body .other-color ul>li {
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: center;
+}
+.setting .body .transparency ul {
+  display: flex;
+  flex-flow: column nowrap;
+}
+.setting .body .transparency ul>li {
+  display: flex;
+  flex-flow: row nowrap;
+}
+.setting .body .transparency ul>li>div {
+  width: 250px;
+}
+.collapse {
+  border: none;
+}
+:deep(.el-collapse-item__header),
+:deep(.el-collapse-item__wrap) {
+  background-color: transparent;
+  color: black;
+  font-size: 16px;
 }
 </style>

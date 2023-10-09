@@ -1,5 +1,5 @@
 import Vue from 'vue'
-import { ColorPicker, Message, Switch, Slider, Input, Collapse, CollapseItem } from 'element-ui'
+import { ColorPicker, Message, Switch, Slider, Input, Collapse, CollapseItem, Dialog, Button } from 'element-ui'
 import 'element-ui/lib/theme-chalk/index.css'
 import App from './App'
 
@@ -10,6 +10,8 @@ Vue.use(Slider)
 Vue.use(Input)
 Vue.use(Collapse)
 Vue.use(CollapseItem)
+Vue.use(Dialog)
+Vue.use(Button)
 
 Vue.component(Message.name, Message)
 Vue.prototype.$message = Message;

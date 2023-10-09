@@ -18,11 +18,12 @@
       >
         <img src="../assets/fangxiang.png" alt="">
       </div>
-      <!-- 魔方主体(静止) -->
-      <div class="subject-one" :style="revolve">
+      <!-- 魔方主体(旋转) -->
+      <div class="subject-one" ref="box" :style="revolve">
         <div
           class="diamond"
           v-for="data in data"
+          
           :key="data.id"
           :style="`transform: translate3d(${data.deviation});`"
         >
@@ -37,7 +38,7 @@
           </template>
         </div>
       </div>
-      <!-- 魔方主体(旋转) -->
+      <!-- 魔方主体(静止) -->
       <div class="subject-two">
         <div
           class="diamond"
@@ -173,6 +174,18 @@
         </el-collapse>
       </div>
     </div>
+    <el-dialog
+      title="提示"
+      :visible.sync="settingConfig.dialogVisible"
+      width="30%"
+      :before-close="handleClose">
+      <span>同时显示魔方内部细节和边框会消耗大量性能，在魔方整体旋转时可能会造成页面卡顿</span>
+      <span slot="footer" class="dialog-footer">
+        <el-button type="success" plain @click="settingConfig.hideInside = true">隐藏内部</el-button>
+        <el-button type="success" plain @click="settingConfig.hideBorder = true">隐藏边框</el-button>
+        <el-button type="warning" plain @click="permanentCloseTip">无所谓并不再提示</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -362,17 +375,25 @@ export default {
         moveY: 0
       },
       settingConfig: { // 设置配置信息
-        display: false,
+        display: true,
         formula: 'u',
         hideInside: true, // 是否隐藏魔方内部的元素
         hideBorder: false, // 是否隐藏边框 
         enableTransparentColor: true, // 是否开启透明颜色
         activeName: 1, // 控制折叠面板
-        mapping: Object.freeze({ u: '顶面', d: '底面', f: '正面', b: '背面', r: '右侧', l: '左侧', hide: '内部', border: '边框' }) // 魔方各个面的中文映射
+        dialogVisible: false, // 控制对话框
+        permanentClose: localStorage.getItem('closeTip') === '1',
+        mapping: Object.freeze({ u: '顶面', d: '底面', f: '正面', b: '背面', r: '右侧', l: '左侧', hide: '内部', border: '边框' }) // 魔方各部分名称的中文映射
       }
     }
   },
-  computed: {
+  watch: {
+    'settingConfig.hideInside' (newValue) {
+      this.settingConfig.dialogVisible = this.settingConfig.permanentClose ? false : !newValue && !this.settingConfig.hideBorder
+    },
+    'settingConfig.hideBorder' (newValue) {
+      this.settingConfig.dialogVisible = this.settingConfig.permanentClose ? false : !newValue && !this.settingConfig.hideInside
+    }
   },
   methods: {
     controlRotateHandler (layer, deg) { // 控制魔方单层旋转 核心逻辑
@@ -418,6 +439,10 @@ export default {
         this.rotateOrNot = true
         this._displaySwitch(false, layer) // 隐藏非旋转体被点击的层 隐藏旋转体未被点击的层
         this.revolve = `transition: all ${time / 1000}s; transform: rotate${axis}(${deg}deg);` // 通过过渡和3d转换来做出旋转的动画效果
+        // this.$refs['box'].addEventListener('transitionend', e => {
+        //   // console.log(e)
+        //   e
+        // })
         setTimeout(() => { // 此代码块会在旋转的动画效果结束后执行
           colorExchange(this.data, layer, deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
           colorExchange(this.datas, layer, deg)
@@ -427,7 +452,7 @@ export default {
           setTimeout(() => {
             this.intercept = true // 关闭节流阀
             resolve(tmpFormula) // 执行完等一会后再告诉promise已经完成，防止无法预料的bug
-          }, 50);
+          }, 50)
         }, time + 5)
       })
     },
@@ -838,7 +863,6 @@ export default {
           that._recursion(formula, false).then(() => centerEdgePosition(res))
         }
       }
-
       // 中间层棱块 复原
       function center (res) {
         const formula = []
@@ -912,7 +936,6 @@ export default {
         }
         that._recursion(formula).then(() => res())
       }
-
       // 顶面复原
       function topSurface (res) {
         const formula = []
@@ -963,7 +986,6 @@ export default {
         }
         that._recursion(formula).then(() => topSurface(res))
       }
-
       // 顶层角块 复位
       function topCorner (res) {
         const formula = []
@@ -993,7 +1015,6 @@ export default {
         }
         that._recursion(formula).then(() => topCorner(res))
       }
-
       // 顶层棱块 复位
       function topEdgePosition (res) {
         const formula = []
@@ -1138,25 +1159,31 @@ export default {
       }, 0)
     },
     mouseDownHandler (e) { // 鼠标在某个面上按下时触发
+      const config = this.rubikSCubeRotateConfig // 魔方拖动旋转所需的配置
       this.clickIsInPage = true
-      this.rubikSCubeRotateConfig.downX = e.pageX // 记录鼠标按下时的坐标
-      this.rubikSCubeRotateConfig.downY = e.pageY
-      this.rubikSCubeRotateConfig.tmpX = this.rubikSCubeRotateConfig.x // 记录当前旋转的角度
-      this.rubikSCubeRotateConfig.tmpY = this.rubikSCubeRotateConfig.y
+      config.downX = e.pageX // 记录鼠标按下时的坐标
+      config.downY = e.pageY
+      config.tmpX = config.x // 记录当前旋转的角度
+      config.tmpY = config.y
       addEventListener('mousemove', this._mouseMove) // 监听鼠标移动事件
     },
     _mouseMove (e) { // 鼠标移动时的回调
-      if (this.rubikSCubeRotateConfig.isThrottled) return
-      this.rubikSCubeRotateConfig.isThrottled = true
+      const config = this.rubikSCubeRotateConfig // 魔方拖动旋转所需的配置
+      if (config.isThrottled) return
+      config.isThrottled = true
       setTimeout(() => { // 节流
-        this.rubikSCubeRotateConfig.isThrottled = false
+        config.isThrottled = false
       }, 50)
       this.prohibitRotate = false // 节流阀 控制魔方整体旋转时阻止单层旋转和执行公式
-      let diffX = Math.floor((e.pageX - this.rubikSCubeRotateConfig.downX) / 2) // 记录鼠标移动后与按下时的坐标差值
-      let diffY = Math.floor(-(e.pageY - this.rubikSCubeRotateConfig.downY) / 2)
-      let tmpAndX = diffY + this.rubikSCubeRotateConfig.tmpX // 原始x轴旋转角度
-      this.rubikSCubeRotateConfig.x = tmpAndX < -45 ? -45 : tmpAndX > 45 ? 45 : tmpAndX // 限制x轴旋转的角度范围 -45到45之间
-      this.rubikSCubeRotateConfig.y = diffX + this.rubikSCubeRotateConfig.tmpY
+      let diffX = Math.floor((e.pageX - config.downX) / 2) // 记录鼠标移动后与按下时的坐标差值
+      let diffY = Math.floor(-(e.pageY - config.downY) / 2)
+      let tmpAndX = diffY + config.tmpX // 原始x轴旋转角度
+      if (!(diffY < 2 && diffY > -2)) { // 如果旋转角度过小则不旋转
+        config.x = tmpAndX < -45 ? -45 : tmpAndX > 45 ? 45 : tmpAndX // 限制x轴旋转的角度范围 -45到45之间
+      }
+      if (!(diffX < 2 && diffX > -2)) {
+        config.y = diffX + config.tmpY
+      }
     },
     _strToFormula (str) { // 字符串转公式
       str = str.replace(/1/g, '\'')
@@ -1227,11 +1254,10 @@ export default {
       }
       return simplifyFormula
     },
-    colorChange (color, layer) {
+    colorChange (color, layer) { // 魔方面颜色更改
       this.configInformation.pageColor[layer] = color
-      // this._updataPageColor(color, layer)
     },
-    bgColorChange (newColor) {
+    bgColorChange (newColor) { // 背景颜色更改
       this.configInformation.bgcColor = newColor
     },
     implement () { // 执行输入的公式
@@ -1245,6 +1271,14 @@ export default {
       const opacity = this.settingConfig.enableTransparentColor ? `opacity: ${pageColor.transparency ? pageColor.transparency[angle.color + key] : '1'};` : ''
       const border = this.settingConfig.hideBorder ? '' : `border: 1px solid ${data.display ? pageColor.border : 'transparent'};`
       return transform + backgroundColor + opacity + border
+    },
+    handleClose () { // 关闭提示
+      this.settingConfig.dialogVisible = false
+    },
+    permanentCloseTip () { // 永久关闭提示
+      localStorage.setItem('closeTip', 1)
+      this.settingConfig.dialogVisible = false
+      this.settingConfig.permanentClose = true
     },
     pasteTextToClipboard // 将传入的文本复制到剪贴板
   },
@@ -1263,6 +1297,7 @@ export default {
       let yValue = this.rubikSCubeRotateConfig.y
       this._recovery('y', () => { this.prohibitRotate = true; this.clickIsInPage = false }, yValue >= 360 ? yValue % 360 : yValue <= -360 ? yValue % -360 : yValue) // 旋转角度超过360后自动回正 避免出现不可预期的bug
     })
+    if (!this.settingConfig.hideInside && !this.settingConfig.hideBorder) this.settingConfig.dialogVisible = !this.settingConfig.permanentClose
   }
 }
 </script>
@@ -1303,18 +1338,13 @@ export default {
 .tips:hover img {
   opacity: .3;
 }
+/* 魔方主体 */
 .subject-one,
 .subject-two {
   position: absolute;
   width: 300px;
   height: 300px;
   transform-style: preserve-3d;
-}
-.subject-one {
-  display: flex;
-}
-.subject-two {
-  display: flex;
 }
 .subject-one .diamond,
 .subject-two .diamond {
@@ -1323,8 +1353,8 @@ export default {
   width: 100px;
   height: 100px;
 }
-.subject-one .diamond div,
-.subject-two .diamond div {
+.subject-one .diamond>div,
+.subject-two .diamond>div {
   position: absolute;
   width: 100px;
   height: 100px;
@@ -1421,6 +1451,7 @@ export default {
 .menu .footer .formula:hover {
   background-color: rgba(0, 0, 0, .1);
 }
+/* 设置 */
 .setting {
   position: fixed;
   top: 7%;

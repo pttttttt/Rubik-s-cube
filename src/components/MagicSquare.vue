@@ -1100,15 +1100,15 @@ export default {
         runTasksSequentially(tasks)
       })
     },
-    _autoRecoveryFormula () { // 自动生成复原公式，但不复原
+    _autoRecoveryFormula () { // 生成复原公式，但不复原
       const that = this
-      that.isAutoRecoveryFormula = true
-      const tmpTime = that.configInformation.rotateTime
-      that.configInformation.rotateTime = 0
-      that._autoRecovery().then(() => {
-        that.configInformation.rotateTime = tmpTime
-        that.data = deepCopy(that.datas)
-        that.isAutoRecoveryFormula = true
+      that.isAutoRecoveryFormula = true // 节流阀
+      const tmpTime = that.configInformation.rotateTime // 保存正常状态下的单层旋转时间
+      that.configInformation.rotateTime = 0 // 将单层旋转时间更改为零 降低生成公式所用时间
+      that._autoRecovery().then(() => { // 调用自动复原的函数来生成复原公式
+        that.configInformation.rotateTime = tmpTime // 恢复初始时间
+        that.data = deepCopy(that.datas) // 将已复原的数据还原成初始的状态
+        that.isAutoRecoveryFormula = false
       })
     },
     _keyUpEvent (e) { // 键盘弹起事件

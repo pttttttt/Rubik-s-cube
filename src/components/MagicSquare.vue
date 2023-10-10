@@ -127,7 +127,7 @@
         </div>
         <div class="formula">
           <span>自定义公式</span>
-          <input type="text" v-model="settingConfig.formula">
+          <input type="text" v-model="settingConfig.formula" placeholder="请输入想要执行的步骤">
           <button @click="implement">执行</button>
         </div>
         <div>
@@ -142,10 +142,10 @@
           <span>启用透明颜色</span>
           <el-switch v-model="settingConfig.enableTransparentColor" active-color="#13ce66"></el-switch>
         </div>
-        <div class="bg-color">
+        <!-- <div class="bg-color">
           <span>背景颜色</span>
           <el-ColorPicker v-model="configInformation.bgcColor" @active-change="bgColorChange"></el-ColorPicker>
-        </div>
+        </div> -->
         <el-collapse v-model="settingConfig.activeName" accordion class="collapse">
           <el-collapse-item title="颜色" name="1" class="other-color">
             <ul>
@@ -375,11 +375,11 @@ export default {
         moveY: 0
       },
       settingConfig: { // 设置配置信息
-        display: true,
-        formula: 'u',
+        display: false,
+        formula: '',
         hideInside: true, // 是否隐藏魔方内部的元素
         hideBorder: false, // 是否隐藏边框 
-        enableTransparentColor: true, // 是否开启透明颜色
+        enableTransparentColor: false, // 是否开启透明颜色
         activeName: 1, // 控制折叠面板
         dialogVisible: false, // 控制对话框
         permanentClose: localStorage.getItem('closeTip') === '1',
@@ -1457,6 +1457,12 @@ export default {
   top: 7%;
   left: 70%;
   z-index: 1;
+}
+.setting .head {
+  font-size: 18px;
+  font-weight: 500;
+  text-align: center;
+  margin-bottom: 20px;
 }
 .setting .body {
   display: flex;

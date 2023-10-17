@@ -5,7 +5,7 @@
 </template>
 
 <script>
-    import MagicSquare from './components/MagicSquare'
+    import MagicSquare from './views/MagicSquare'
     export default {
         name: 'App',
         components: {

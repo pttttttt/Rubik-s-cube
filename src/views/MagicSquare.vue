@@ -58,66 +58,6 @@
         </div>
       </div>
     </div>
-    <div class="menu" :style="`top: ${150 + menuMoveConfig.y}px; left: ${100 + menuMoveConfig.x}px;`"
-      v-show="this.menuMoveConfig.display"
-    >
-      <div class="head">
-        <ul class="nav">
-          <li @click="switchFormula = true" :style="switchFormula && 'background: rgba(255, 255, 255, .5)'">还原公式</li>
-          <li @click="switchFormula = false; cancelHanlder()" :style="switchFormula || 'background: rgba(255, 255, 255, .5)'">其他公式</li>
-          <li
-            class="move-control"
-            style="flex: auto;"
-            @mousedown="startMove($event)"
-          ></li>
-        </ul>
-      </div>
-      <div class="body">
-        <ul v-if="switchFormula">
-          <li
-            v-for="item in formulaButton"
-            :key="item.key"
-            @click="choiceFormulaHanlder(item.key, item)"
-            :style="`background: ${item.active ? 'white' : ''};`"
-          >
-            <img :src="require('../assets/formulaImg/' + item.key + '.png')" alt="寄">
-            <span>{{ item.name }}</span>
-          </li>
-          <li class="cancel" @click="cancelHanlder">
-            <span>取 消</span><span>选 中</span>
-          </li>
-        </ul>
-        <ul v-else>
-          <li
-            v-for="item in otherFormulaButton"
-            :key="item.key"
-            @click="implementFormulaHanlder(otherFormula[item.key], false)"
-            @contextmenu.prevent="implementFormulaHanlder(otherFormula[item.key], true)"
-          >
-            <img :src="require('../assets/otherFormulaImg/' + item.key + '.png')" alt="寄">
-            <span>{{ item.name }}</span>
-          </li>
-        </ul>
-      </div>
-      <div class="footer">
-        <div class="control">
-          <div @click="disruptionHanlder" title="随机生成打乱公式并执行">打乱</div>
-          <div @click="_restore" title="强制复原，无公式">复原</div>
-          <div @click="_autoRecovery()" title="自动生成公式复原">自动</div>
-          <div @click="_autoRecoveryFormula()" title="只生成公式，不复原">公式</div>
-          <!-- <div @click="reversal = !reversal" :style="reversal ? 'background: white;' : ''">逆转</div> -->
-          <div @click="startRecordHandler" title="开始记录步骤">开始</div>
-          <div @click="closeRecordHandler" title="结束记录并在控制台输出步骤">结束</div>
-          <div @click="rollBackHandler" title="撤回上一步，只能撤回记录过的步骤">撤销</div>
-          <div @click="_keyUpEvent({ key: ' ' })" title="复原魔方整体旋转角度">复位</div>
-          <div @click="hideTip = false" title="隐藏魔方表面的遮罩层">隐藏</div>
-          <div @click="hideTip = true" title="显示魔方表面的遮罩层">显示</div>
-          <div @click="menuMoveConfig.display = false" title="关闭此菜单，使用'ctrl+空格键'再次打开">关闭</div>
-          <div @click="settingConfig.display = !settingConfig.display" title="打开设置面板">设置</div>
-        </div>
-        <div class="formula" @click="pasteTextToClipboard(outputText)">{{ outputText }}</div>
-      </div>
-    </div>
     <div class="setting" v-show="settingConfig.display">
       <div class="head">更改基本配置</div>
       <div class="body">
@@ -186,6 +126,64 @@
         <el-button type="warning" plain @click="permanentCloseTip">无所谓并不再提示</el-button>
       </span>
     </el-dialog>
+    <DragMenu class="menu" v-show="menuMoveConfig.display">
+      <div class="head">
+        <ul class="nav">
+          <li @click="switchFormula = true" :style="switchFormula && 'background: rgba(255, 255, 255, .5)'">还原公式</li>
+          <li @click="switchFormula = false; cancelHanlder()" :style="switchFormula || 'background: rgba(255, 255, 255, .5)'">其他公式</li>
+          <li
+            class="move-control"
+            style="flex: auto;"
+            id="drag"
+            ></li>
+        </ul>
+      </div>
+      <div class="body">
+        <ul v-if="switchFormula">
+          <li
+            v-for="item in formulaButton"
+            :key="item.key"
+            @click="choiceFormulaHanlder(item.key, item)"
+            :style="`background: ${item.active ? 'white' : ''};`"
+          >
+            <img :src="require('../assets/formulaImg/' + item.key + '.png')" alt="寄">
+            <span>{{ item.name }}</span>
+          </li>
+          <li class="cancel" @click="cancelHanlder">
+            <span>取 消</span><span>选 中</span>
+          </li>
+        </ul>
+        <ul v-else>
+          <li
+            v-for="item in otherFormulaButton"
+            :key="item.key"
+            @click="implementFormulaHanlder(otherFormula[item.key], false)"
+            @contextmenu.prevent="implementFormulaHanlder(otherFormula[item.key], true)"
+          >
+            <img :src="require('../assets/otherFormulaImg/' + item.key + '.png')" alt="寄">
+            <span>{{ item.name }}</span>
+          </li>
+        </ul>
+      </div>
+      <div class="footer">
+        <div class="control">
+          <div @click="disruptionHanlder" title="随机生成打乱公式并执行">打乱</div>
+          <div @click="_restore" title="强制复原，无公式">复原</div>
+          <div @click="_autoRecovery()" title="自动生成公式复原">自动</div>
+          <div @click="_autoRecoveryFormula()" title="只生成公式，不复原">公式</div>
+          <!-- <div @click="reversal = !reversal" :style="reversal ? 'background: white;' : ''">逆转</div> -->
+          <div @click="startRecordHandler" title="开始记录步骤">开始</div>
+          <div @click="closeRecordHandler" title="结束记录并在控制台输出步骤">结束</div>
+          <div @click="rollBackHandler" title="撤回上一步，只能撤回记录过的步骤">撤销</div>
+          <div @click="_keyUpEvent({ key: ' ' })" title="复原魔方整体旋转角度">复位</div>
+          <div @click="hideTip = false" title="隐藏魔方表面的遮罩层">隐藏</div>
+          <div @click="hideTip = true" title="显示魔方表面的遮罩层">显示</div>
+          <div @click="menuMoveConfig.display = false" title="关闭此菜单，使用'ctrl+空格键'再次打开">关闭</div>
+          <div @click="settingConfig.display = !settingConfig.display" title="打开设置面板">设置</div>
+        </div>
+        <div class="formula" @click="pasteTextToClipboard(outputText)">{{ outputText }}</div>
+      </div>
+    </DragMenu>
   </div>
 </template>
 
@@ -195,9 +193,11 @@ import deepCopy from '../utils/deepCopy.js'
 import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
 import pasteTextToClipboard from '../utils/pasteTextToClipboard.js'
 import colorExchange from '../utils/colorExchange.js'
+import DragMenu from '../components/DragMenu.vue'
 
 export default {
   name: 'MagicSquare',
+  components: { DragMenu },
   data() {
     /*
     * 魔方每个块最基本的位置信息
@@ -365,14 +365,7 @@ export default {
         rotateTime // 魔方单层旋转所需的时间
       },
       menuMoveConfig: { // 菜单配置信息
-        display: true,
-        move: false,
-        x: 0,
-        y: 0,
-        downX: 0,
-        downY: 0,
-        moveX: 0,
-        moveY: 0
+        display: true
       },
       settingConfig: { // 设置配置信息
         display: false,
@@ -521,21 +514,9 @@ export default {
       this.outputText = this.outputText.replace(/([a-z]|[a-z]('|2))$/, '')
       this.controlRotateHandler(...this._reversal([this.step.pop()])[0]).then(() => this.record = true)
     },
-    startMove (e) { // 菜单拖拽
-      this.menuMoveConfig.move = true
-      this.menuMoveConfig.downX = e.pageX
-      this.menuMoveConfig.downY = e.pageY
-      addEventListener('mousemove', this._move)
-    },
     _record (formula) { // 记录
       this.step.push([...formula])
       this.outputText += this._formulaToStr([formula])
-    },
-    _move (e) { // 拖拽时监听鼠标移动的回调
-      const tmpX = this.menuMoveConfig.moveX + e.pageX - this.menuMoveConfig.downX
-      const tmpY = this.menuMoveConfig.moveY + e.pageY - this.menuMoveConfig.downY
-      this.menuMoveConfig.x = tmpX < -100 ? -100 : tmpX
-      this.menuMoveConfig.y = tmpY < -150 ? -150 : tmpY
     },
     _reversal (formulaArr) { // 逆转传入的步骤
       const dstArr = []
@@ -667,7 +648,6 @@ export default {
             return [...tmpFormula, ...formula]
           }
         }
-
         function judge (index) {
           for (let i = 0; i < 6; i++) {
             let tmpColor = data[index].angle[i].color
@@ -1286,23 +1266,21 @@ export default {
     addEventListener('keyup', e => this._keyUpEvent(e))
     addEventListener('keydown', e => this._keyDownEvent(e))
     addEventListener('mouseup', () => { // 鼠标弹起时触发
-      if (this.menuMoveConfig.move) {
-        this.menuMoveConfig.move = false
-        this.menuMoveConfig.moveX = this.menuMoveConfig.x
-        this.menuMoveConfig.moveY = this.menuMoveConfig.y
-        removeEventListener('mousemove', this._move)
-      }
       if (!this.clickIsInPage) return
       removeEventListener('mousemove', this._mouseMove) // 注销鼠标移动的监听事件 节约性能以及防止不可预料的bug
       let yValue = this.rubikSCubeRotateConfig.y
-      this._recovery('y', () => { this.prohibitRotate = true; this.clickIsInPage = false }, yValue >= 360 ? yValue % 360 : yValue <= -360 ? yValue % -360 : yValue) // 旋转角度超过360后自动回正 避免出现不可预期的bug
+      this._recovery('y', () => {
+        this.prohibitRotate = true
+        this.clickIsInPage = false
+      }, yValue >= 360 ? yValue % 360 : yValue <= -360 ? yValue % -360 : yValue) // 旋转角度超过360后自动回正 避免出现不可预期的bug
     })
-    if (!this.settingConfig.hideInside && !this.settingConfig.hideBorder) this.settingConfig.dialogVisible = !this.settingConfig.permanentClose
+    const config = this.settingConfig
+    if (!config.hideInside && !config.hideBorder) config.dialogVisible = !config.permanentClose
   }
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .container {
   position: relative;
 }
@@ -1327,16 +1305,16 @@ export default {
   top: -0;
   left: 0;
   text-align: center;
-}
-.tips img {
-  width: 100px;
-  height: 100px;
-  margin-top: 100px;
-  opacity: 0;
-  transition: all .4s;
-}
-.tips:hover img {
-  opacity: .3;
+  img {
+    width: 100px;
+    height: 100px;
+    margin-top: 100px;
+    opacity: 0;
+    transition: all .4s;
+  }
+  &:hover img {
+    opacity: .3;
+  }
 }
 /* 魔方主体 */
 .subject-one,
@@ -1345,111 +1323,106 @@ export default {
   width: 300px;
   height: 300px;
   transform-style: preserve-3d;
-}
-.subject-one .diamond,
-.subject-two .diamond {
-  transform-style: preserve-3d;
-  position: absolute;
-  width: 100px;
-  height: 100px;
-}
-.subject-one .diamond>div,
-.subject-two .diamond>div {
-  position: absolute;
-  width: 100px;
-  height: 100px;
-  box-sizing: border-box;
+  .diamond {
+    transform-style: preserve-3d;
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    &>div {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      box-sizing: border-box;
+    }
+  }
 }
 /* 菜单 */
 .menu {
   width: 400px;
   position: absolute;
   box-shadow: 0 0 10px 5px rgba(0, 0, 0, .2);
-}
-.menu .head {
-  border-bottom: 1px solid white;
-}
-.menu .head>ul {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-}
-.menu .head>ul>li {
-  height: 40px;
-  padding: 0 10px;
-  font-size: 14px;
-  text-align: center;
-  line-height: 40px;
-  transition: all .2s;
-}
-.menu .head>ul>li:not(.move-control:hover):hover {
-  background-color: rgba(255, 255, 255, .3);
-}
-.menu .head>ul .move-control {
-  cursor: grab;
-}
-.menu .body {
-  padding: 10px;
-}
-.menu .body>ul {
-  display: flex;
-  flex-flow: row wrap;
-  align-items: center;
-  justify-content: space-around;
-}
-.menu .body>ul>li {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-around;
-  width: 80px;
-  height: 80px;
-  margin: 10px 0 0 0;
-  font-size: 12px;
-  transition: all .2s;
-}
-.menu .body>ul>li:hover {
-  background-color: rgba(255, 255, 255, .5);
-}
-.menu .body>ul .cancel {
-  font-size: 20px;
-  justify-content: space-evenly;
-}
-.menu .body>ul>li>img {
-  display: block;
-  width: 70%;
-  height: 70%;
-  margin: auto;
-}
-.menu .footer {
-  padding: 10px;
-  border-top: 1px solid white;
-}
-.menu .footer .control {
-  display: flex;
-  flex-flow: row wrap;
-  align-items: center;
-  justify-content: space-around;
-}
-.menu .footer .control>div {
-  width: 60px;
-  height: 30px;
-  margin-top: 10px;
-  text-align: center;
-  font-size: 14px;
-  line-height: 30px;
-  transition: all .2s;
-  background: #40b6b7;
-}
-.menu .footer .control>div:hover {
-  background-color: rgba(255, 255, 255, .5);
-}
-.menu .footer .formula {
-  word-wrap: break-word;
-}
-.menu .footer .formula:hover {
-  background-color: rgba(0, 0, 0, .1);
+  .head {
+    border-bottom: 1px solid white;
+    &>ul {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      &>li {
+        height: 40px;
+        padding: 0 10px;
+        font-size: 14px;
+        text-align: center;
+        line-height: 40px;
+        transition: all .2s;
+        &:not(.move-control:hover):hover {
+          background-color: rgba(255, 255, 255, .3);
+        }
+      }
+    }
+  }
+  .body {
+    padding: 10px;
+    &>ul {
+      display: flex;
+      flex-flow: row wrap;
+      align-items: center;
+      justify-content: space-around;
+      &>li {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-around;
+        width: 80px;
+        height: 80px;
+        margin: 10px 0 0 0;
+        font-size: 12px;
+        transition: all .2s;
+        &:hover {
+          background-color: rgba(255, 255, 255, .5);
+        }
+        &>img {
+          display: block;
+          width: 70%;
+          height: 70%;
+          margin: auto;
+        }
+      }
+      .cancel {
+        font-size: 20px;
+        justify-content: space-evenly;
+      }
+    }
+  }
+  .footer {
+    padding: 10px;
+    border-top: 1px solid white;
+    .control {
+      display: flex;
+      flex-flow: row wrap;
+      align-items: center;
+      justify-content: space-around;
+      &>div {
+        width: 60px;
+        height: 30px;
+        margin-top: 10px;
+        text-align: center;
+        font-size: 14px;
+        line-height: 30px;
+        transition: all .2s;
+        background: #40b6b7;
+        &:hover {
+          background-color: rgba(255, 255, 255, .5);
+        }
+      }
+    }
+    .formula {
+      word-wrap: break-word;
+      &:hover {
+        background-color: rgba(0, 0, 0, .1);
+      }
+    }
+  }
 }
 /* 设置 */
 .setting {
@@ -1457,52 +1430,54 @@ export default {
   top: 7%;
   left: 70%;
   z-index: 1;
-}
-.setting .head {
-  font-size: 18px;
-  font-weight: 500;
-  text-align: center;
-  margin-bottom: 20px;
-}
-.setting .body {
-  display: flex;
-  flex-flow: column nowrap;
-  gap: 5px;
-}
-.setting .body>div:not(.collapse) {
-  display: flex;
-  flex-flow: row nowrap;
-  align-items: center;
-  gap: 10px;
-}
-.setting .body>div>span {
-  display: block;
-  width: 100px;
-  text-align: right;
-  font-size: 16px;
-}
-.setting .body .other-color ul {
-  display: flex;
-  flex-flow: row wrap;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-}
-.setting .body .other-color ul>li {
-  display: flex;
-  flex-flow: column nowrap;
-  align-items: center;
-}
-.setting .body .transparency ul {
-  display: flex;
-  flex-flow: column nowrap;
-}
-.setting .body .transparency ul>li {
-  display: flex;
-  flex-flow: row nowrap;
-}
-.setting .body .transparency ul>li>div {
-  width: 250px;
+  .head {
+    font-size: 18px;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .body {
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 5px;
+    &>div {
+      &:not(.collapse) {
+        display: flex;
+        flex-flow: row nowrap;
+        align-items: center;
+        gap: 10px;
+      }
+      &>span {
+        display: block;
+        width: 100px;
+        text-align: right;
+        font-size: 16px;
+      }
+    }
+    .other-color ul {
+      display: flex;
+      flex-flow: row wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      &>li {
+        display: flex;
+        flex-flow: column nowrap;
+        align-items: center;
+      }
+    }
+    .transparency ul {
+      display: flex;
+      flex-flow: column nowrap;
+      &>li {
+        display: flex;
+        flex-flow: row nowrap;
+        &>div {
+          width: 250px;
+        }
+      }
+    }
+  }
 }
 .collapse {
   border: none;
@@ -1512,5 +1487,10 @@ export default {
   background-color: transparent;
   color: black;
   font-size: 16px;
+}
+
+.menu-one #drag {
+  width: 100%;
+  height: 200px;
 }
 </style>

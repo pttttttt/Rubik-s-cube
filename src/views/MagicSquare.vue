@@ -58,62 +58,6 @@
         </div>
       </div>
     </div>
-    <div class="setting" v-show="settingConfig.display">
-      <div class="head">更改基本配置</div>
-      <div class="body">
-        <div class="speed">
-          <span>单层旋转速度</span>
-          <input type="text" v-model.number="configInformation.rotateTime">
-        </div>
-        <div class="formula">
-          <span>自定义公式</span>
-          <input type="text" v-model="settingConfig.formula" placeholder="请输入想要执行的步骤">
-          <button @click="implement">执行</button>
-        </div>
-        <div>
-          <span>隐藏内部</span>
-          <el-switch v-model="settingConfig.hideInside" active-color="#13ce66"></el-switch>
-        </div>
-        <div>
-          <span>隐藏边框</span>
-          <el-switch v-model="settingConfig.hideBorder" active-color="#13ce66"></el-switch>
-        </div>
-        <div>
-          <span>启用透明颜色</span>
-          <el-switch v-model="settingConfig.enableTransparentColor" active-color="#13ce66"></el-switch>
-        </div>
-        <!-- <div class="bg-color">
-          <span>背景颜色</span>
-          <el-ColorPicker v-model="configInformation.bgcColor" @active-change="bgColorChange"></el-ColorPicker>
-        </div> -->
-        <el-collapse v-model="settingConfig.activeName" accordion class="collapse">
-          <el-collapse-item title="颜色" name="1" class="other-color">
-            <ul>
-              <template v-for="(layer, key, index) in configInformation.pageColor">
-                <li :key="index" v-if="key !== 'transparency'">
-                  <el-ColorPicker v-model="configInformation.pageColor[key]" @active-change="colorChange($event, key)"></el-ColorPicker>
-                  <span>{{ settingConfig.mapping[key] }}</span>
-                </li>
-              </template>
-            </ul>
-          </el-collapse-item>
-          <el-collapse-item title="透明度" name="2" class="transparency">
-            <ul>
-              <li>
-                <span>所有面</span>
-                <el-slider v-model="configInformation.pageColor.transparency.whole" :disabled="!settingConfig.enableTransparentColor" :min="0" :max="1" :step="0.01"></el-slider>
-              </li>
-              <template v-for="(name, key, index) in settingConfig.mapping">
-                <li :key="index" v-if="key !== 'border'">
-                  <span>{{ name }}</span>
-                  <el-slider v-model="configInformation.pageColor.transparency[key]" :disabled="!settingConfig.enableTransparentColor" :min="0" :max="1" :step="0.01"></el-slider>
-                </li>
-              </template>
-            </ul>
-          </el-collapse-item>
-        </el-collapse>
-      </div>
-    </div>
     <el-dialog
       title="提示"
       :visible.sync="settingConfig.dialogVisible"
@@ -182,6 +126,78 @@
           <div @click="settingConfig.display = !settingConfig.display" title="打开设置面板">设置</div>
         </div>
         <div class="formula" @click="pasteTextToClipboard(outputText)">{{ outputText }}</div>
+      </div>
+    </DragMenu>
+    <DragMenu class="setting" top="150" left="600" v-show="settingConfig.display">
+      <div class="head" id="drag">更改基本配置</div>
+      <div class="body">
+        <div class="speed">
+          <span>单层旋转速度</span>
+          <input type="text" v-model.number="configInformation.rotateTime">
+        </div>
+        <div class="formula">
+          <span>自定义公式</span>
+          <input type="text" v-model="settingConfig.formula" placeholder="请输入想要执行的步骤">
+          <button @click="implement">执行</button>
+        </div>
+        <div>
+          <span>隐藏内部</span>
+          <el-switch v-model="settingConfig.hideInside" active-color="#13ce66"></el-switch>
+        </div>
+        <div>
+          <span>隐藏边框</span>
+          <el-switch v-model="settingConfig.hideBorder" active-color="#13ce66"></el-switch>
+        </div>
+        <div>
+          <span>启用透明颜色</span>
+          <el-switch v-model="settingConfig.enableTransparentColor" active-color="#13ce66"></el-switch>
+        </div>
+        <!-- <div class="bg-color">
+          <span>背景颜色</span>
+          <el-ColorPicker v-model="configInformation.bgcColor" @active-change="bgColorChange"></el-ColorPicker>
+        </div> -->
+        <el-collapse v-model="settingConfig.activeName" accordion class="collapse">
+          <el-collapse-item title="颜色" name="1" class="other-color">
+            <ul>
+              <template v-for="(layer, key, index) in configInformation.pageColor">
+                <li :key="index" v-if="key !== 'transparency'">
+                  <el-ColorPicker v-model="configInformation.pageColor[key]" @active-change="colorChange($event, key)"></el-ColorPicker>
+                  <span>{{ settingConfig.mapping[key] }}</span>
+                </li>
+              </template>
+            </ul>
+          </el-collapse-item>
+          <el-collapse-item title="透明度" name="2" class="transparency">
+            <ul>
+              <li>
+                <span>所有面</span>
+                <el-slider v-model="configInformation.pageColor.transparency.whole" :disabled="!settingConfig.enableTransparentColor" :min="0" :max="1" :step="0.01"></el-slider>
+              </li>
+              <template v-for="(name, key, index) in settingConfig.mapping">
+                <li :key="index" v-if="key !== 'border'">
+                  <span>{{ name }}</span>
+                  <el-slider v-model="configInformation.pageColor.transparency[key]" :disabled="!settingConfig.enableTransparentColor" :min="0" :max="1" :step="0.01"></el-slider>
+                </li>
+              </template>
+            </ul>
+          </el-collapse-item>
+        </el-collapse>
+      </div>
+    </DragMenu>
+    <DragMenu class="error" top="150" left="1000" bgcColor="white" v-show="errorConfig.display">
+      <div class="head" id="drag">公式解析出错</div>
+      <div class="body">
+        <div class="formula-str">
+          <span
+            v-for="(value, index) in errorConfig.errorData"
+            :key="index"
+            :style="`color: ${value.error ? 'red' : 'black' };`"
+          >{{ value.str }}</span>
+        </div>
+        <div class="rewrite">
+          <textarea cols="30" rows="5" v-model="errorConfig.formula" placeholder="请修改公式"></textarea>
+          <button @click="reExecute()">{{ errorConfig.formula ? '重新执行' : '关闭' }}</button>
+        </div>
       </div>
     </DragMenu>
   </div>
@@ -377,6 +393,11 @@ export default {
         dialogVisible: false, // 控制对话框
         permanentClose: localStorage.getItem('closeTip') === '1',
         mapping: Object.freeze({ u: '顶面', d: '底面', f: '正面', b: '背面', r: '右侧', l: '左侧', hide: '内部', border: '边框' }) // 魔方各部分名称的中文映射
+      },
+      errorConfig: { // 公式转字符串错误配置信息
+        errorData: [],
+        formula: '',
+        display: false
       }
     }
   },
@@ -1097,9 +1118,9 @@ export default {
           if (e.ctrlKey) this.menuMoveConfig.display = !this.menuMoveConfig.display
           else this.rubikSCubeRotateConfig.x = this.rubikSCubeRotateConfig.y = 0
           break
-        case 'Escape':
-          this._restore()
-          break
+        // case 'Escape':
+        //   this._restore()
+        //   break
         case 'Enter':
           if (e.shiftKey) this._autoRecovery()
           else this.disruptionHanlder()
@@ -1165,18 +1186,26 @@ export default {
         config.y = diffX + config.tmpY
       }
     },
-    _strToFormula (str) { // 字符串转公式
-      str = str.replace(/1/g, '\'')
+    _strToFormula (originStr) { // 字符串转公式
+      let removeSpace = originStr.replace(/\s/g, '')
+      let str = removeSpace.replace(/1/g, '\'')
       const formula = []
+      const errorStrIndex = []
       for (let i = 0, n = str.length; i < n; i++) {
         const layer = str[i]
         const angle = str[i + 1]
         if (/[a-z]/.test(angle)) {
-          formula.push(operation[layer])
+          const tmpFormula = operation[layer]
+          tmpFormula ? formula.push(tmpFormula) : errorStrIndex.push(i)
         } else {
-          angle === '\'' ? formula.push(operation[layer + '1']) : formula.push(operation[layer + angle])
+          const tmpFormula = angle === '\'' ? operation[layer + '1'] : operation[layer + angle]
+          tmpFormula ? formula.push(tmpFormula) : errorStrIndex.push(i, i + 1)
           i++
         }
+      }
+      if (errorStrIndex.length) {
+        this._strToFormulaErrorHandler(removeSpace, errorStrIndex)
+        return []
       }
       return formula
     },
@@ -1195,6 +1224,24 @@ export default {
         }
       })
       return isSplicingArrForm ? '[' + strArr.join(', ') + ']' : str
+    },
+    _strToFormulaErrorHandler (str, errorStrIndex) { // 转换错误处理程序
+      const errorData = []
+      for (let i = 0; i < str.length; i++) {
+        const item = { str: '', error: false }
+        item.str = str[i]
+        if (errorStrIndex.includes(i)) item.error = true
+        errorData.push(item)
+      }
+      const config = this.errorConfig
+      config.errorData = errorData
+      config.formula = ''
+      config.display = true
+    },
+    reExecute () {
+      const config = this.errorConfig
+      config.display = false
+      if (config.formula) this._recursion(this._strToFormula(config.formula))
     },
     _simplifyStepsHanlder(originaFlormula) { // 简化公式
       const simplifyFormula = []
@@ -1426,11 +1473,9 @@ export default {
 }
 /* 设置 */
 .setting {
-  position: fixed;
-  top: 7%;
-  left: 70%;
-  z-index: 1;
   .head {
+    height: 40px;
+    line-height: 40px;
     font-size: 18px;
     font-weight: 500;
     text-align: center;
@@ -1479,6 +1524,31 @@ export default {
     }
   }
 }
+.error {
+  .head {
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+  }
+  .body {
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: center;
+    gap: 10px;
+    align-items: flex-start;
+    .formula-str {
+      width: 100%;
+      word-wrap: break-word;
+    }
+    .rewrite {
+      display: flex;
+      flex-flow: row nowrap;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+  }
+}
 .collapse {
   border: none;
 }
@@ -1487,10 +1557,5 @@ export default {
   background-color: transparent;
   color: black;
   font-size: 16px;
-}
-
-.menu-one #drag {
-  width: 100%;
-  height: 200px;
 }
 </style>

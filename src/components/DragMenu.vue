@@ -1,5 +1,5 @@
 <template>
-  <div class="menu" :style="`top: ${initialTop + menuMoveConfig.y}px; left: ${initialLeft + menuMoveConfig.x}px;`+  basicStyle">
+  <div class="menu" ref="box" :style="`top: ${initialTop + menuMoveConfig.y}px; left: ${initialLeft + menuMoveConfig.x}px;`+  basicStyle">
     <slot></slot>
   </div>
 </template>
@@ -48,9 +48,20 @@ export default {
       config.x = tmpX < -this.initialLeft ? -this.initialLeft : tmpX
       config.y = tmpY < -this.initialTop ? -this.initialTop : tmpY
     }
+    // isInViewport (element) {
+    //   const rect = element.getBoundingClientRect()
+    //   return (
+    //     rect.top >= 0 &&
+    //     rect.left >= 0 &&
+    //     rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+    //     rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    //   )
+    // }
   },
   mounted () {
-    const dragDom = document.querySelector('#drag')
+    const dragDom = this.$refs['box'].querySelector('#drag')
+    // console.log(dragDom)
+    // console.log(dragDom.getBoundingClientRect())
     dragDom.addEventListener('mousedown', e => {
       const config = this.menuMoveConfig
       config.move = true

@@ -19,7 +19,7 @@
         <img src="../assets/fangxiang.png" alt="">
       </div>
       <!-- 魔方主体(旋转) -->
-      <div class="subject-one" ref="box" :style="revolve">
+      <div class="subject-one" :style="revolve" @transitionend="transitionEndHandler">
         <div
           class="diamond"
           v-for="data in data"
@@ -138,7 +138,7 @@
         <div class="formula">
           <span>自定义公式</span>
           <input type="text" v-model="settingConfig.formula" placeholder="请输入想要执行的步骤">
-          <button @click="implement">执行</button>
+          <button @click="implement()">执行</button>
         </div>
         <div>
           <span>隐藏内部</span>
@@ -363,6 +363,10 @@ export default {
       transitionTime: 0.2, // 魔方整体旋转的过渡时间
       prohibitRotate: true, // 整体旋转的节流阀
       switchFormula: true, // 公式 or 其他
+      layer: '', // 当前旋转层
+      deg: '', // 当前旋转度数
+      resolve: null,
+      tmpFormula: null,
       // 配置信息
       rubikSCubeRotateConfig: { // 魔方旋转配置信息
         x: 0, // 魔方整体旋转角度
@@ -453,22 +457,23 @@ export default {
         this.rotateOrNot = true
         this._displaySwitch(false, layer) // 隐藏非旋转体被点击的层 隐藏旋转体未被点击的层
         this.revolve = `transition: all ${time / 1000}s; transform: rotate${axis}(${deg}deg);` // 通过过渡和3d转换来做出旋转的动画效果
-        // this.$refs['box'].addEventListener('transitionend', e => {
-        //   // console.log(e)
-        //   e
-        // })
-        setTimeout(() => { // 此代码块会在旋转的动画效果结束后执行
-          colorExchange(this.data, layer, deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
-          colorExchange(this.datas, layer, deg)
-          this.revolve = '' // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把旋转体复原到原本的旋转角度
-          this._displaySwitch(true, layer) // 恢复旋转之前被隐藏的层
-          this.rotateOrNot = false
-          setTimeout(() => {
-            this.intercept = true // 关闭节流阀
-            resolve(tmpFormula) // 执行完等一会后再告诉promise已经完成，防止无法预料的bug
-          }, 50)
-        }, time + 5)
+        this.layer = layer
+        this.deg = deg
+        this.resolve = resolve
+        this.tmpFormula = tmpFormula
       })
+    },
+    transitionEndHandler (e) {
+      if (e.propertyName !== 'transform') return
+      colorExchange(this.data, this.layer, this.deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
+      colorExchange(this.datas, this.layer, this.deg)
+      this.revolve = '' // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把旋转体复原到原本的旋转角度
+      this._displaySwitch(true, this.layer) // 恢复旋转之前被隐藏的层
+      this.rotateOrNot = false
+      setTimeout(() => { // 等待dom树更新完毕再关闭节流阀，防止上一次的过渡效果还未移除就再次触发旋转
+        this.intercept = true // 关闭节流阀
+        this.resolve(this.tmpFormula)
+      }, 0)
     },
     clickHandler (id, leftOrRight) { // 鼠标点击魔方的面
       if (this.isImplementFormula) return
@@ -1238,10 +1243,16 @@ export default {
       config.formula = ''
       config.display = true
     },
-    reExecute () {
+    reExecute () { // 重新执行公式
       const config = this.errorConfig
       config.display = false
-      if (config.formula) this._recursion(this._strToFormula(config.formula))
+      if (config.formula) {
+        this._recursion(this._strToFormula(config.formula)).then(data => {
+          if (data) {
+            this.settingConfig.formula = config.formula
+          }
+        })
+      }
     },
     _simplifyStepsHanlder(originaFlormula) { // 简化公式
       const simplifyFormula = []

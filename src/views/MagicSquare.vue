@@ -536,9 +536,10 @@ export default {
     rollBackHandler () { // 撤销
       if (!this.intercept) return
       if (!this.step.length) return
-      this.record = false
+      this.record = false // 撤销时关闭记录功能
       this.outputText = this.outputText.replace(/([a-z]|[a-z]('|2))$/, '')
-      this.controlRotateHandler(...this._reversal([this.step.pop()])[0]).then(() => this.record = true)
+      this.controlRotateHandler(...this._reversal([this.step.pop()])[0])
+        .then(() => this.record = true) // 撤销完成时再次打开记录
     },
     _record (formula) { // 记录
       this.step.push([...formula])
@@ -576,7 +577,7 @@ export default {
     _displaySwitch (boolean, layer) { // 旋转时控制魔方显示部分
       this.data.forEach((v, i) => v.layer[layer] ? this.datas[i].display = boolean : v.display = boolean)
     },
-    _restore () { // 复原
+    _restore () { // 强行复原
       let fn = data => {
         data.forEach((v, i) => {
           v.angle.forEach((vlue, j) => {
@@ -1047,29 +1048,6 @@ export default {
         that._recursion(formula).then(() => topEdgePosition(res))
       }
 
-      // new Promise(res => bottomCrossOne(res)).then(() => {
-      //   new Promise(res => bottomCrossTwo(res)).then(() => {
-      //     new Promise(res => bottomCornerPosition(res)).then(() => {
-      //       new Promise(res => bottomCorner(res)).then(() => {
-      //         new Promise(res => centerEdgePosition(res)).then(() => {
-      //           new Promise(res => center(res)).then(() => {
-      //             new Promise(res => topCrossPosition(res)).then(() => {
-      //               new Promise(res => topSurface(res)).then(() => {
-      //                 new Promise(res => topCorner(res)).then(() => {
-      //                   new Promise(res => topEdgePosition(res)).then(() => {
-      //                     that.isAutoRecovery = false
-      //                     that.closeRecordHandler()
-      //                     console.log('结束')
-      //                   })
-      //                 })
-      //               })
-      //             })
-      //           })
-      //         })
-      //       })
-      //     })
-      //   })
-      // })
       return new Promise(res => {
         function simulateAsyncTask(handler) {
           return new Promise(resolve => {
@@ -1098,7 +1076,7 @@ export default {
       const that = this
       that.isAutoRecoveryFormula = true // 节流阀
       const tmpTime = that.configInformation.rotateTime // 保存正常状态下的单层旋转时间
-      that.configInformation.rotateTime = 0 // 将单层旋转时间更改为零 降低生成公式所用时间
+      that.configInformation.rotateTime = 0 // 将单层旋转时间更改为零 降低生成公式耗时
       that._autoRecovery().then(() => { // 调用自动复原的函数来生成复原公式
         that.configInformation.rotateTime = tmpTime // 恢复初始时间
         that.data = deepCopy(that.datas) // 将已复原的数据还原成初始的状态
@@ -1108,26 +1086,23 @@ export default {
     _keyUpEvent (e) { // 键盘弹起事件
       switch(e.key) {
         case ' ':
-          if (e.ctrlKey) this.menuMoveConfig.display = !this.menuMoveConfig.display
-          else this.rubikSCubeRotateConfig.x = this.rubikSCubeRotateConfig.y = 0
+          if (e.ctrlKey) this.menuMoveConfig.display = !this.menuMoveConfig.display // 关闭/打开菜单弹窗
+          else this.rubikSCubeRotateConfig.x = this.rubikSCubeRotateConfig.y = 0 // 初始化魔方视角
           break
-        // case 'Escape':
-        //   this._restore()
-        //   break
         case 'Enter':
-          if (e.shiftKey) this._autoRecovery()
-          else this.disruptionHanlder()
+          if (e.shiftKey) this._autoRecovery() // 复原
+          else this.disruptionHanlder() // 打乱
           break
         case 'z':
-          if (e.ctrlKey) this.rollBackHandler()
+          if (e.ctrlKey) this.rollBackHandler() // 撤销 （记录状态下可用）
           break
         case 'i':
-          if (e.ctrlKey) this.settingConfig.display = !this.settingConfig.display
+          if (e.ctrlKey) this.settingConfig.display = !this.settingConfig.display // 关闭/打开设置弹窗
           break
       }
     },
     _keyDownEvent (e) { // 键盘按下事件
-      switch(e.key) {
+      switch(e.key) { // 控制魔方视角
         case 'ArrowUp':
           this.rubikSCubeRotateConfig.x >= 45 || this.rubikSCubeRotateConfig.x++
           break

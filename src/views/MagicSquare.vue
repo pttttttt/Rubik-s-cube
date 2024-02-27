@@ -206,6 +206,7 @@
 <script>
 import { operation, formula, otherFormula, formulaButton, otherFormulaButton } from '../utils/formula.js'
 import deepCopy from '../utils/deepCopy.js'
+import throttle from '../utils/throttle.js'
 import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
 import pasteTextToClipboard from '../utils/pasteTextToClipboard.js'
 import colorExchange from '../utils/colorExchange.js'
@@ -1138,11 +1139,6 @@ export default {
     },
     _mouseMove (e) { // 鼠标移动时的回调
       const config = this.rubikSCubeRotateConfig // 魔方拖动旋转所需的配置
-      if (config.isThrottled) return
-      config.isThrottled = true
-      setTimeout(() => { // 节流
-        config.isThrottled = false
-      }, 50)
       this.prohibitRotate = false // 节流阀 控制魔方整体旋转时阻止单层旋转和执行公式
       let diffX = Math.floor((e.pageX - config.downX) / 2) // 记录鼠标移动后与按下时的坐标差值
       let diffY = Math.floor(-(e.pageY - config.downY) / 2)
@@ -1282,6 +1278,9 @@ export default {
       this.settingConfig.permanentClose = true
     },
     pasteTextToClipboard // 将传入的文本复制到剪贴板
+  },
+  created () {
+    this._mouseMove = throttle(this._mouseMove, 50)
   },
   mounted () {
     addEventListener('keyup', e => this._keyUpEvent(e))

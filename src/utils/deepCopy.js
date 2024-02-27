@@ -1,6 +1,6 @@
 /**
  * 深克隆
- * @param {*} obj 需克隆的参数
+ * @param {*} obj 需克隆的对象
  * @returns 新对象
  */
 export default function deepCopy (obj) {

@@ -558,30 +558,19 @@ export default {
       return dstArr
     },
     _recursion (tmpFormula) { // 递归执行传入的公式
-      if (!this.prohibitRotate && !this.isAutoRecovery) return // 魔方整体旋转时禁止单层旋转
+      const that = this
+      if (!that.prohibitRotate && !that.isAutoRecovery) return // 魔方整体旋转时禁止单层旋转
       return new Promise(res => {
-        if (!tmpFormula.length) return res()// 公式为空则直接完成
-        this.isImplementFormula = true // 打开执行公式的节流阀
-        const formula = [...tmpFormula]
-        const fn = promise => {
-          promise.then(() => {
-            const next = this.controlRotateHandler(...formula.shift())
-            if (formula.length) fn(next)
-            else {
-              next.then(data => { // 当最后一个步骤执行完成后关闭节流阀
-                this.isImplementFormula = false
-                res(data)
-              })
-            }
+        that.isImplementFormula = true // 打开执行公式的节流阀
+        fn([...tmpFormula])
+        function fn (formula) {
+          if (formula.length === 0) {
+            that.isImplementFormula = false
+            return res()
+          }
+          that.controlRotateHandler(...formula.shift()).then(() => {
+            fn(formula)
           })
-        }
-        if (formula.length === 1) { // 当公式中只有一步操作时
-          this.controlRotateHandler(...formula.shift()).then(data => {
-            this.isImplementFormula = false
-            res(data)
-          })
-        } else {
-          fn(this.controlRotateHandler(...formula.shift()))
         }
       })
     },

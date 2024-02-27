@@ -477,6 +477,7 @@ export default {
     },
     clickHandler (id, leftOrRight) { // 鼠标点击魔方的面
       if (this.isImplementFormula) return
+      if (!this.prohibitRotate && !this.isAutoRecovery) return // 魔方整体旋转时禁止单层旋转
       if (this.SelectedFormula) {
         this.implementFormulaHanlder(this.formula[this.formulaName][id], !leftOrRight)
       } else {
@@ -500,24 +501,23 @@ export default {
       this._recursion(formula)
     },
     disruptionHanlder () { // 打乱
-      if (!this.intercept) return
+      if (!this.intercept) return // 单层旋转时退出逻辑
       const keys = ['r', 'l', 'f', 'b', 'u', 'd']
-      const disruptionFormula = []
-      const disruptionFormulaKeys = []
+      const disruptionFormula = [] // 公式
+      const disruptionFormulaKeys = [] // 公式对应字符
       let key = ''
+      let tmpKey = ''
       for (let i = 0; i < 20; i++) {
-        for (let judge = true; judge;) {
-          let tmpKey = keys[Math.floor(Math.random() * 6)]
-          if (tmpKey !== key) {
-            key = tmpKey
-            disruptionFormulaKeys.push(tmpKey)
-            judge = false
-          }
-        }
-        if (!this.record) this.outputText = disruptionFormulaKeys.join('')
+        do { // 防止两次生成同一个步骤
+          tmpKey = keys[Math.floor(Math.random() * 6)]
+        } while (tmpKey === key)
+        key = tmpKey
+        disruptionFormulaKeys.push(tmpKey)
         disruptionFormula.push(this.operation[key])
       }
-      this._recursion(disruptionFormula)
+      this._recursion(disruptionFormula).then(() => { // 执行打乱公式
+        if (!this.record) this.outputText = disruptionFormulaKeys.join('')
+      })
     },
     startRecordHandler () { // 开始
       this.outputText = ''
@@ -559,11 +559,10 @@ export default {
     },
     _recursion (tmpFormula) { // 递归执行传入的公式
       const that = this
-      if (!that.prohibitRotate && !that.isAutoRecovery) return // 魔方整体旋转时禁止单层旋转
       return new Promise(res => {
         that.isImplementFormula = true // 打开执行公式的节流阀
         fn([...tmpFormula])
-        function fn (formula) {
+        function fn (formula) { // 递归函数
           if (formula.length === 0) {
             that.isImplementFormula = false
             return res()

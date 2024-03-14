@@ -119,7 +119,7 @@
           <!-- <div @click="reversal = !reversal" :style="reversal ? 'background: white;' : ''">逆转</div> -->
           <div @click="startRecordHandler" title="开始记录步骤">开始</div>
           <div @click="closeRecordHandler" title="结束记录并在控制台输出步骤">结束</div>
-          <div @click="rollBackHandler" title="撤回上一步，只能撤回记录过的步骤">撤销</div>
+          <div @click="rollBackHandler" title="撤回上一步，只能在开始记录后撤回">撤销</div>
           <div @click="_keyUpEvent({ key: ' ' })" title="复原魔方整体旋转角度">复位</div>
           <div @click="hideTip = false" title="隐藏魔方表面的遮罩层">隐藏</div>
           <div @click="hideTip = true" title="显示魔方表面的遮罩层">显示</div>
@@ -533,6 +533,7 @@ export default {
       this.record = true
     },
     closeRecordHandler (judge = false) { // 结束
+      this.step = []
       const formula = this._strToFormula(this.outputText) // 将记录的字符串转换为公式
       const simplifyFormula = this._simplifyStepsHanlder(formula) // 简化公式
       const str = this._formulaToStr(simplifyFormula, true) // 公式转字符串

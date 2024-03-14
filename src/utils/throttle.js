@@ -1,11 +1,11 @@
 /**
- * 防抖
- * @param {function} fn 需防抖的函数
+ * 节流
+ * @param {function} fn 需节流的函数
  * @param {number} delay 延时 默认500毫秒
  * @param {object} that fn指向的对象
  * @returns {function}
  */
-export default function throttle (fn, delay = 500, that = this) {
+export default function (fn, delay = 500, that = this) {
   let flag = true
   return function() {
     if (flag) {

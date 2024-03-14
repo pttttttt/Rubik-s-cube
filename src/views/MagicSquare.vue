@@ -70,6 +70,7 @@
         <el-button type="warning" plain @click="permanentCloseTip">无所谓并不再提示</el-button>
       </span>
     </el-dialog>
+    <!-- 菜单 -->
     <DragMenu class="menu" v-show="menuMoveConfig.display">
       <div class="head">
         <ul class="nav">
@@ -128,6 +129,7 @@
         <div class="formula" @click="pasteTextToClipboard(outputText)">{{ outputText }}</div>
       </div>
     </DragMenu>
+    <!-- 设置面板 -->
     <DragMenu class="setting" top="150" left="600" v-show="settingConfig.display">
       <div class="head" id="drag">更改基本配置</div>
       <div class="body">
@@ -184,6 +186,7 @@
         </el-collapse>
       </div>
     </DragMenu>
+    <!-- 公式解析错误弹窗 -->
     <DragMenu class="error" top="150" left="1000" bgcColor="white" v-show="errorConfig.display">
       <div class="head" id="drag">公式解析出错</div>
       <div class="body">
@@ -390,7 +393,7 @@ export default {
       },
       settingConfig: { // 设置配置信息
         display: false,
-        formula: '',
+        formula: '', // 自定义公式
         hideInside: true, // 是否隐藏魔方内部的元素
         hideBorder: false, // 是否隐藏边框 
         enableTransparentColor: false, // 是否开启透明颜色
@@ -412,6 +415,11 @@ export default {
     },
     'settingConfig.hideBorder' (newValue) {
       this.settingConfig.dialogVisible = this.settingConfig.permanentClose ? false : !newValue && !this.settingConfig.hideInside
+    },
+    'configInformation.rotateTime' (newValue) {
+      if (typeof newValue !== 'number') {
+        this.configInformation.rotateTime = 0
+      }
     }
   },
   methods: {
@@ -1206,11 +1214,8 @@ export default {
       const config = this.errorConfig
       config.display = false
       if (config.formula) {
-        this._recursion(this._strToFormula(config.formula)).then(data => {
-          if (data) {
-            this.settingConfig.formula = config.formula
-          }
-        })
+        this.settingConfig.formula = config.formula
+        this._recursion(this._strToFormula(config.formula))
       }
     },
     _simplifyStepsHanlder(originaFlormula) { // 简化公式

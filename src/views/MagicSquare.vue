@@ -587,16 +587,15 @@ export default {
     _displaySwitch (boolean, layer) { // 旋转时控制魔方显示部分
       this.data.forEach((v, i) => v.layer[layer] ? this.datas[i].display = boolean : v.display = boolean)
     },
-    _restore () { // 强行复原
-      let fn = data => {
-        data.forEach((v, i) => {
-          v.angle.forEach((vlue, j) => {
-            vlue.color = this.allColor[i][j]
-          })
-        })
+    _restore () { // 无公式复原
+      for (let i = 0, n = this.data.length; i < n; i++) {
+        const itemAngle = this.data[i].angle
+        for (let j = 0, n = itemAngle.length; j < n; j++) {
+          const color = this.allColor[i][j]
+          itemAngle[j].color = color
+          this.datas[i].angle[j].color = color
+        }
       }
-      fn(this.data)
-      fn(this.datas)
     },
     _autoRecovery (data = this.data) { // 自动复原
       const that = this

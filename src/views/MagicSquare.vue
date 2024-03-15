@@ -222,8 +222,8 @@ export default {
     /*
     * 魔方每个块最基本的位置信息
     * up down right left front back 取首字母作为当前块的位置信息   例：urf 处在顶层，右层，前层相交的角块， uf 处在顶层，前层相交的棱块 u 处在顶层的中心块
-    * center为魔方的整体中心块 (中心块分为表面层中心块 和整体中心块)
-    * 该位置是在魔方的白色面为底，蓝色面在前的前提下定义的
+    * center为魔方内部的中心块
+    * 该位置是以魔方的白色面朝下，蓝色面朝前定义 脱离此前提无实际意义
     */
     let basicPositioInfo = [
       'urf', 'uf', 'ulf', 'ul', 'ulb', 'ub', 'urb', 'ur', 'u',
@@ -233,7 +233,7 @@ export default {
     let allColor = [] // 初始魔方的所有块每个面的颜色 复原时使用
     const data = _optimizationDataHandler(basicPositioInfo)
     const datas = deepCopy(data)
-    function _optimizationDataHandler(arr) { // 魔方光有位置信息并不能够较好地渲染 还需要进一步的处理
+    function _optimizationDataHandler(arr) { // 基于魔方基础位置信息做进一步处理 方便后续控制dom元素
       const tmpData = []
       let color, judge, x, y, z, layer, rgba = 'hide'
       arr.forEach((v, i) => {
@@ -1081,7 +1081,7 @@ export default {
         runTasksSequentially(tasks)
       })
     },
-    _autoRecoveryFormula () { // 生成复原公式，但不复原
+    _autoRecoveryFormula () { // 只生成复原公式 不复原
       const that = this
       that.isAutoRecoveryFormula = true // 节流阀
       const tmpTime = that.configInformation.rotateTime // 保存正常状态下的单层旋转时间

@@ -139,8 +139,10 @@
         </div>
         <div class="formula">
           <span>自定义公式</span>
-          <input type="text" v-model="settingConfig.formula" placeholder="请输入想要执行的步骤">
-          <button @click="implement()">执行</button>
+          <input class="text" type="text" v-model="settingConfig.formula" placeholder="输入公式">
+          <input class="count" type="number" v-model.number="settingConfig.count" min="0" max="20" placeholder="0-20">
+          <button v-if="!settingConfig.isCycle" @click="implement()">执行</button>
+          <button v-else @click="settingConfig.isCycle = false">停止</button>
         </div>
         <div>
           <span>隐藏内部</span>
@@ -394,6 +396,8 @@ export default {
       settingConfig: { // 设置配置信息
         display: false,
         formula: '', // 自定义公式
+        count: 1, // 自定义公式执行次数
+        isCycle: false, // 是否循环执行
         hideInside: true, // 是否隐藏魔方内部的元素
         hideBorder: false, // 是否隐藏边框 
         enableTransparentColor: false, // 是否开启透明颜色
@@ -1263,7 +1267,34 @@ export default {
       this.configInformation.bgcColor = newColor
     },
     implement () { // 执行输入的公式
-      this._recursion(this._strToFormula(this.settingConfig.formula))
+      const count = this.settingConfig.count
+      const formula = this._strToFormula(this.settingConfig.formula)
+      if (count <= 0) {
+        let cycleCount = 0
+        const tmpTime = this.configInformation.rotateTime
+        this.configInformation.rotateTime = 0
+        this.settingConfig.count = 0
+        this.settingConfig.isCycle = true
+        this.$message.success('开始循环执行')
+        const timer = setInterval(() => {
+          if (!this.settingConfig.isCycle) {
+            clearInterval(timer)
+            this.configInformation.rotateTime = tmpTime
+            this.$message.success('停止循环，执行次数为' + cycleCount)
+          }
+          cycleCount++
+          this._recursion(formula)
+        }, 500)
+      } else if (count > 20) {
+        this.settingConfig.count = 20
+        this.$message.warning('执行次数不能超过20')
+      } else {
+        const newFormula = []
+        for (let i = 0; i < count; i++) {
+          newFormula.push(...formula)
+        }
+        this._recursion(newFormula)
+      }
     },
     style (data, angle) { // 每个面的样式
       const transform = `transform: ${angle.deg} translateZ(50px);`
@@ -1475,6 +1506,14 @@ export default {
         width: 100px;
         text-align: right;
         font-size: 16px;
+      }
+      &.formula {
+        .text {
+          width: 110px;
+        }
+        .count {
+          width: 41px;
+        }
       }
     }
     .other-color ul {

@@ -14,18 +14,18 @@
         :key="data.id"
         @click="clickHandler(data.id, true)"
         @contextmenu.prevent="clickHandler(data.id, false)"
-        :style="`${getWholeSize} transform: ${data.deg} translateZ(${151 + configInformation.companyLength % 100}px);`"
+        :style="`${getWholeSize} transform: ${data.deg} translateZ(${151 + configInformation.companyLength - 100}px);`"
       >
         <img src="../assets/fangxiang.png" alt="">
       </div>
       <!-- 魔方主体(旋转) -->
-      <div class="subject-one" :style="getWholeSize + revolve" @transitionend="transitionEndHandler">
+      <div id="cube" class="subject-one" :style="getWholeSize + revolve" @transitionend="transitionEndHandler">
         <div
           class="diamond"
           v-for="data in data"
           :key="data.id"
-          :style="`transform: translate3d(${data.deviation});`"
-        >
+          :style="pieceStyle(data.deviation)"
+          >
           <template v-for="angle in data.angle">
             <div
               v-if="!(settingConfig.hideInside && angle.color === 'hide')"
@@ -43,8 +43,8 @@
           class="diamond"
           v-for="data in datas"
           :key="data.id"
-          :style="`transform: translate3d(${data.deviation});`"
-        >
+          :style="pieceStyle(data.deviation)"
+          >
           <template v-for="angle in data.angle">
             <div
               v-if="!(settingConfig.hideInside && angle.color === 'hide')"
@@ -156,6 +156,10 @@
           <span>启用透明颜色</span>
           <el-switch v-model="settingConfig.enableTransparentColor" active-color="#13ce66"></el-switch>
         </div>
+        <div class="spacing">
+          <span>间距</span>
+          <el-slider class="slider" v-model="configInformation.companyLength" :min="100" :max="300" :step="5"></el-slider>
+        </div>
         <!-- <div class="bg-color">
           <span>背景颜色</span>
           <el-ColorPicker v-model="configInformation.bgcColor" @active-change="bgColorChange"></el-ColorPicker>
@@ -237,14 +241,13 @@ export default {
     const datas = deepCopy(data)
     function _optimizationDataHandler(arr) { // 基于魔方基础位置信息做进一步处理 方便后续控制dom元素
       const tmpData = []
-      let color, judge, x, y, z, layer, rgba = 'hide'
+      let color, x, y, z, layer, rgba = 'hide'
       arr.forEach((v, i) => {
-        x = '' // 记录当前块的偏移量
-        y = ''
-        z = ''
+        x = 1 // 记录当前块的偏移量
+        y = 1
+        z = 0
         color = {top: rgba, down: rgba, right: rgba, left: rgba, front: rgba, after: rgba} // 当前块每个面的颜色
         layer = {u: false, d: false, r: false, l: false, f: false, b: false} // 当前块的位置 用布尔值代替字符串方便后续操作
-        judge = true // 判断是否为整体中心块
         let td = true, rl = true, fb = true // 用于判断当前代码块在当前循环体是否已被执行过
         for (let j = 0; j < 3; j++) { // 遍历字符串 v
           if (td) { // 当前代码块执行一次后在本循环体就不再执行
@@ -252,53 +255,47 @@ export default {
               y = 0
               color.top = 'u' // u
               layer.u = true
-              judge = false
               td = false
               continue
             } else if (v[j] === 'd') {
-              y = companyLength * 2
+              y = 2
               color.down = 'd' // d
               layer.d = true
-              judge = false
               td = false
               continue
             } else {
-              y = companyLength
+              y = 1
             }
           }
           if (rl) {
             if (v[j] === 'r') {
-              x = companyLength * 2
+              x = 2
               color.right = 'r' // r
               color.left = rgba
               layer.r = true
-              judge = false
               rl = false
               continue
             } else if (v[j] === 'l') {
               x = 0
               color.left = 'l' // l
               layer.l = true
-              judge = false
               rl = false
               continue
             } else {
-              x = companyLength
+              x = 1
             }
           }
           if (fb) {
             if (v[j] === 'f') {
-              z = companyLength
+              z = 1
               color.front = 'f' // f
               layer.f = true
-              judge = false
               fb = false
               continue
             } else if (v[j] === 'b') {
-              z = -companyLength
+              z = -1
               color.after = 'b' // b
               layer.b = true
-              judge = false
               fb = false
               continue
             } else {
@@ -307,7 +304,8 @@ export default {
           }
         }
         tmpData[i] = { // 单个块的配置信息
-          deviation: judge ? `${companyLength}px, ${companyLength}px, 0` : `${x}px, ${y}px, ${z}px`, // 偏移量
+          // deviation: judge ? `${companyLength}px, ${companyLength}px, 0` : `${x}px, ${y}px, ${z}px`, // 偏移量
+          deviation: [x, y, z],
           layer, // 位置信息 （布尔值）
           display: true, // 是否显示 （在旋转体旋转时使用）
           id: i, // 当前块在整个魔方体数组的下标
@@ -384,14 +382,13 @@ export default {
         isThrottled: false // 魔方整体旋转节流阀
       },
       configInformation: { // 魔方基础配置
-        // initialAngle, // 初始角度
         bgcColor, // 背景颜色
         pageColor, // 页面颜色
         companyLength,
         rotateTime // 魔方单层旋转所需的时间
       },
       menuMoveConfig: { // 菜单配置信息
-        display: false
+        display: true
       },
       settingConfig: { // 设置配置信息
         display: false,
@@ -415,6 +412,7 @@ export default {
   },
   computed: {
     getWholeSize () {
+      const companyLength = this.configInformation.companyLength
       const size = `width: ${300 + (companyLength - 100) * 2}px; height: ${300 + (companyLength - 100) * 2}px;`
       return size
     },
@@ -490,6 +488,7 @@ export default {
     },
     transitionEndHandler (e) {
       if (e.propertyName !== 'transform') return
+      if (e.target.id !== 'cube') return
       colorExchange(this.data, this.layer, this.deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
       colorExchange(this.datas, this.layer, this.deg)
       this.revolve = '' // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把旋转体复原到原本的旋转角度
@@ -1308,6 +1307,11 @@ export default {
         this._recursion(newFormula)
       }
     },
+    pieceStyle (deviation) { // 每个块的样式
+      const companyLength = this.configInformation.companyLength
+      const str = deviation[0] * companyLength + 'px,' + deviation[1] * companyLength + 'px,' + deviation[2] * companyLength + 'px'
+      return `transform: translate3d(${str}); transition: 0.2s;`
+    },
     style (data, angle) { // 每个面的样式
       const transform = `transform: ${angle.deg} translateZ(50px);`
       const pageColor = this.configInformation.pageColor
@@ -1525,7 +1529,14 @@ export default {
           width: 41px;
         }
       }
+      &.spacing {
+        .slider {
+          margin-left: 10px;
+          width: 200px;
+        }
+      }
     }
+
     .other-color ul {
       display: flex;
       flex-flow: row wrap;
@@ -1544,6 +1555,11 @@ export default {
       &>li {
         display: flex;
         flex-flow: row nowrap;
+        gap: 12px;
+        line-height: 38px;
+        &>span {
+          width: 48px;
+        }
         &>div {
           width: 250px;
         }

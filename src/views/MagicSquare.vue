@@ -4,7 +4,7 @@
      <!-- :style="`background: ${configInformation.tmpBgcColor};`" -->
     <!-- 魔方 -->
     <div class="box"
-      :style="`transform: translate(-50%, -50%) rotateX(${configInformation.initialAngle.x + rubikSCubeRotateConfig.x}deg) rotateY(${configInformation.initialAngle.y + rubikSCubeRotateConfig.y}deg); transition: all ${transitionTime}s;`"
+      :style="getBoxStyle"
       @mousedown="mouseDownHandler"
       >
       <!-- 悬浮在魔方每个面上的遮罩层 鼠标点击时传递相应的参数以控制魔方旋转 -->
@@ -14,16 +14,15 @@
         :key="data.id"
         @click="clickHandler(data.id, true)"
         @contextmenu.prevent="clickHandler(data.id, false)"
-        :style="`width: ${configInformation.companyLength * 3}px; height: ${configInformation.companyLength * 3}px; transform: ${data.deg} translateZ(${151 + configInformation.companyLength % 100}px);`"
+        :style="`${getWholeSize} transform: ${data.deg} translateZ(${151 + configInformation.companyLength % 100}px);`"
       >
         <img src="../assets/fangxiang.png" alt="">
       </div>
       <!-- 魔方主体(旋转) -->
-      <div class="subject-one" :style="revolve" @transitionend="transitionEndHandler">
+      <div class="subject-one" :style="getWholeSize + revolve" @transitionend="transitionEndHandler">
         <div
           class="diamond"
           v-for="data in data"
-          
           :key="data.id"
           :style="`transform: translate3d(${data.deviation});`"
         >
@@ -39,7 +38,7 @@
         </div>
       </div>
       <!-- 魔方主体(静止) -->
-      <div class="subject-two">
+      <div class="subject-two" :style="getWholeSize">
         <div
           class="diamond"
           v-for="data in datas"
@@ -58,12 +57,13 @@
         </div>
       </div>
     </div>
+    <!-- 性能提示弹窗 -->
     <el-dialog
       title="提示"
       :visible.sync="settingConfig.dialogVisible"
       width="30%"
       :before-close="handleClose">
-      <span>同时显示魔方内部细节和边框会消耗大量性能，在魔方整体旋转时可能会造成页面卡顿</span>
+      <span>同时显示魔方内部细节和边框会消耗大量性能，魔方拖动旋转时可能会造成页面卡顿</span>
       <span slot="footer" class="dialog-footer">
         <el-button type="success" plain @click="settingConfig.hideInside = true">隐藏内部</el-button>
         <el-button type="success" plain @click="settingConfig.hideBorder = true">隐藏边框</el-button>
@@ -71,7 +71,7 @@
       </span>
     </el-dialog>
     <!-- 菜单 -->
-    <DragMenu class="menu" v-show="menuMoveConfig.display">
+    <drag-menu class="menu" v-show="menuMoveConfig.display">
       <div class="head">
         <ul class="nav">
           <li @click="switchFormula = true" :style="switchFormula && 'background: rgba(255, 255, 255, .5)'">还原公式</li>
@@ -128,9 +128,9 @@
         </div>
         <div class="formula" @click="pasteTextToClipboard(outputText)">{{ outputText }}</div>
       </div>
-    </DragMenu>
+    </drag-menu>
     <!-- 设置面板 -->
-    <DragMenu class="setting" top="150" left="600" v-show="settingConfig.display">
+    <drag-menu class="setting" top="150" left="600" v-show="settingConfig.display">
       <div class="head" id="drag">更改基本配置</div>
       <div class="body">
         <div class="speed">
@@ -187,9 +187,9 @@
           </el-collapse-item>
         </el-collapse>
       </div>
-    </DragMenu>
+    </drag-menu>
     <!-- 公式解析错误弹窗 -->
-    <DragMenu class="error" top="150" left="1000" bgcColor="white" v-show="errorConfig.display">
+    <drag-menu class="error" top="150" left="1000" bgcColor="white" v-show="errorConfig.display">
       <div class="head" id="drag">公式解析出错</div>
       <div class="body">
         <div class="formula-str">
@@ -204,7 +204,7 @@
           <button @click="reExecute()">{{ errorConfig.formula ? '重新执行' : '关闭' }}</button>
         </div>
       </div>
-    </DragMenu>
+    </drag-menu>
   </div>
 </template>
 
@@ -384,14 +384,14 @@ export default {
         isThrottled: false // 魔方整体旋转节流阀
       },
       configInformation: { // 魔方基础配置
-        initialAngle, // 初始角度
+        // initialAngle, // 初始角度
         bgcColor, // 背景颜色
         pageColor, // 页面颜色
         companyLength,
         rotateTime // 魔方单层旋转所需的时间
       },
       menuMoveConfig: { // 菜单配置信息
-        display: true
+        display: false
       },
       settingConfig: { // 设置配置信息
         display: false,
@@ -411,6 +411,18 @@ export default {
         formula: '',
         display: false
       }
+    }
+  },
+  computed: {
+    getWholeSize () {
+      const size = `width: ${300 + (companyLength - 100) * 2}px; height: ${300 + (companyLength - 100) * 2}px;`
+      return size
+    },
+    getBoxStyle () {
+      const { rubikSCubeRotateConfig, transitionTime } = this
+      const transform = `transform: translate(-50%, -50%) rotateX(${initialAngle.x + rubikSCubeRotateConfig.x}deg) rotateY(${initialAngle.y + rubikSCubeRotateConfig.y}deg);`
+      const transition = `transition: all ${transitionTime}s;`
+      return transform + transition + this.getWholeSize
     }
   },
   watch: {
@@ -1350,8 +1362,6 @@ export default {
 }
 .box {
   position: fixed;
-  width: 300px;
-  height: 300px;
   top: 50%;
   left: 50%;
   transform-style: preserve-3d;
@@ -1361,10 +1371,12 @@ export default {
   top: -0;
   left: 0;
   text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   img {
     width: 100px;
     height: 100px;
-    margin-top: 100px;
     opacity: 0;
     transition: all .4s;
   }
@@ -1376,8 +1388,6 @@ export default {
 .subject-one,
 .subject-two {
   position: absolute;
-  width: 300px;
-  height: 300px;
   transform-style: preserve-3d;
   .diamond {
     transform-style: preserve-3d;

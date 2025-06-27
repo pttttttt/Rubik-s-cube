@@ -201,7 +201,7 @@
           <span
             v-for="(value, index) in errorConfig.errorData"
             :key="index"
-            :style="`color: ${value.error ? 'red' : 'black' };`"
+            :style="{ color: value.error ? 'red' : 'black' }"
           >{{ value.str }}</span>
         </div>
         <div class="rewrite">
@@ -227,7 +227,7 @@ export default {
   components: { DragMenu },
   data() {
     /*
-    * 魔方每个块最基本的位置信息
+    * 魔方每个块基本位置信息
     * up down right left front back 取首字母作为当前块的位置信息   例：urf 处在顶层，右层，前层相交的角块， uf 处在顶层，前层相交的棱块 u 处在顶层的中心块
     * center为魔方内部的中心块
     * 该位置是以魔方的白色面朝下，蓝色面朝前定义 脱离此前提无实际意义
@@ -351,7 +351,7 @@ export default {
       formulaButton, // 魔方公式所对应的按钮
       otherFormula: Object.freeze(otherFormula), // 其他魔方公式
       otherFormulaButton,
-      SelectedFormula: false, // 当前是否选中公式
+      selectedFormula: false, // 当前是否选中公式
       isImplementFormula: false, // 当前是否正在执行公式
       isAutoRecovery: false, // 是否正在自动复原
       isAutoRecoveryFormula: false, // 是否正在生成复原公式
@@ -487,7 +487,7 @@ export default {
         this.tmpFormula = tmpFormula
       })
     },
-    transitionEndHandler (e) {
+    transitionEndHandler (e) { // 监听旋转过渡样式结束
       if (e.propertyName !== 'transform') return
       if (e.target.id !== 'cube') return
       colorExchange(this.data, this.layer, this.deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
@@ -503,20 +503,20 @@ export default {
     clickHandler (id, leftOrRight) { // 鼠标点击魔方的面
       if (this.isImplementFormula) return
       if (!this.prohibitRotate && !this.isAutoRecovery) return // 魔方整体旋转时禁止单层旋转
-      if (this.SelectedFormula) {
+      if (this.selectedFormula) {
         this.implementFormulaHanlder(this.formula[this.formulaName][id], !leftOrRight)
       } else {
         this.controlRotateHandler(id, leftOrRight ? -90 : 90)
       }
     },
     choiceFormulaHanlder (formulaName, data) { // 选中某一个公式
-      this.SelectedFormula = true
+      this.selectedFormula = true
       this.formulaName = formulaName
       this.formulaButton.forEach(v => v.active = false)
       data.active = true
     },
     cancelHanlder () { // 取消选中公式
-      this.SelectedFormula = false
+      this.selectedFormula = false
       this.formulaButton.forEach(v => v.active = false)
     },
     implementFormulaHanlder (formula, isNeedReversal = this.reversal) { // 通过选择的公式和点击的层选择公式并交给递归函数执行
@@ -544,11 +544,11 @@ export default {
         if (!this.record) this.outputText = disruptionFormulaKeys.join('')
       })
     },
-    startRecordHandler () { // 开始
+    startRecordHandler () { // 开始记录
       this.outputText = ''
       this.record = true
     },
-    closeRecordHandler (judge = false) { // 结束
+    closeRecordHandler (judge = false) { // 结束记录
       this.step = []
       const formula = this._strToFormula(this.outputText) // 将记录的字符串转换为公式
       const simplifyFormula = this._simplifyStepsHanlder(formula) // 简化公式
@@ -582,26 +582,25 @@ export default {
       }
       return dstArr
     },
-    _recursion (tmpFormula) { // 递归执行传入的公式
+    _recursion (formula) { // 递归执行传入的公式
       const that = this
       return new Promise(res => {
+        let count = 0
         that.isImplementFormula = true // 打开执行公式的节流阀
-        fn([...tmpFormula])
-        function fn (formula) { // 递归函数
-          if (formula.length === 0) {
+        const fn = () => { // 递归函数
+          if (count >= formula.length) {
             that.isImplementFormula = false
             return res()
           }
-          that.controlRotateHandler(...formula.shift()).then(() => {
-            fn(formula)
-          })
+          that.controlRotateHandler(...formula[count++]).then(fn)
         }
+        fn()
       })
     },
     _displaySwitch (boolean, layer) { // 旋转时控制魔方显示部分
       this.data.forEach((v, i) => v.layer[layer] ? this.datas[i].display = boolean : v.display = boolean)
     },
-    _restore () { // 无公式复原
+    _restore () { // 通过重置各个色块颜色复原
       for (let i = 0, n = this.data.length; i < n; i++) {
         const itemAngle = this.data[i].angle
         for (let j = 0, n = itemAngle.length; j < n; j++) {
@@ -611,7 +610,7 @@ export default {
         }
       }
     },
-    _autoRecovery (data = this.data) { // 自动复原
+    _autoRecovery (data = this.data) { // 以层先法逻辑自动生成公式并复原
       const that = this
       that.isAutoRecovery = true
       that.startRecordHandler()
@@ -1095,7 +1094,7 @@ export default {
         runTasksSequentially(tasks)
       })
     },
-    _autoRecoveryFormula () { // 只生成复原公式 不复原
+    _autoRecoveryFormula () { // 仅生成复原公式 不复原
       const that = this
       that.isAutoRecoveryFormula = true // 节流阀
       const tmpTime = that.configInformation.rotateTime // 保存正常状态下的单层旋转时间
@@ -1286,7 +1285,11 @@ export default {
             return
           }
           this.settingConfig.count++
-          this._recursion(formula).then(fn)
+          this._recursion(formula).then(() => {
+            if (this.configInformation.rotateTime === 0) {
+              setTimeout(fn, 50)
+            } else fn()
+          })
         }
         this.$message.success('开始循环执行')
         this.settingConfig.isCycle = true
@@ -1300,7 +1303,11 @@ export default {
         const fn = () => {
           if (this.settingConfig.count <= 0) return
           this.settingConfig.count--
-          this._recursion(formula).then(fn)
+          this._recursion(formula).then(() => {
+            if (this.configInformation.rotateTime === 0) {
+              setTimeout(fn, 50)
+            } else fn()
+          })
         }
         fn()
       }

@@ -47,26 +47,7 @@ const relativePosition = {
 function autoGenerateFormula (formula) {
   const result = { r: false, l: false, f: false, b: false, u: false, d: false }
   for (const key in relativePosition) {
-    const tmpStep = []
-    formula.forEach(item => {
-      switch (item[0]) {
-        case 'r':
-          tmpStep.push(newFormula(item[0], item[1], key))
-          break
-        case 'l':
-          tmpStep.push(newFormula(item[0], item[1], key))
-          break
-        case 'f':
-          tmpStep.push(newFormula(item[0], item[1], key))
-          break
-        case 'b':
-          tmpStep.push(newFormula(item[0], item[1], key))
-          break
-        default:
-          tmpStep.push(item)
-      }
-    })
-    result[key] = tmpStep
+    result[key] = formula.map(([layer, deg]) => relativePosition[layer] ? newFormula(layer, deg, key) : [layer, deg])
   }
   function newFormula (layer, deg, key) {
     let newKey = relativePosition[key][layer]

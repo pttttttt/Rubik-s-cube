@@ -53,6 +53,7 @@
               :title="`${data.id}-${angle.id} ${data.original}`"
               :style="style(data, angle)"
               ></div>
+              <!-- >{{ `${data.id}-${angle.id} ${data.original}` }}</div> -->
           </template>
         </div>
       </div>
@@ -140,7 +141,7 @@
         <div class="formula">
           <span>自定义公式</span>
           <input class="text" type="text" v-model="settingConfig.formula" placeholder="输入公式">
-          <input class="count" type="number" v-model.number="settingConfig.count" min="0" max="20" placeholder="0-20">
+          <input class="count" type="number" v-model.number="settingConfig.count" :min="-1" max="20" placeholder="0-20">
           <button v-if="!settingConfig.isCycle" @click="implement()">执行</button>
           <button v-else @click="settingConfig.isCycle = false">停止</button>
         </div>
@@ -572,7 +573,8 @@ export default {
     },
     _reversal (formulaArr) { // 逆转传入的步骤
       const dstArr = []
-      formulaArr.forEach(v => {
+      const tmpArr = deepCopy(formulaArr)
+      tmpArr.forEach(v => {
         if (v[1] === 180 || v[1] === -180) {
           dstArr.unshift(v)
           return
@@ -1280,7 +1282,7 @@ export default {
     implement () { // 执行输入的公式
       const count = this.settingConfig.count
       const formula = this._strToFormula(this.settingConfig.formula)
-      if (count <= 0) {
+      if (count === 0) {
         let cycleCount = 0
         const tmpTime = this.configInformation.rotateTime
         this.configInformation.rotateTime = 0
@@ -1290,12 +1292,17 @@ export default {
         const timer = setInterval(() => {
           if (!this.settingConfig.isCycle) {
             clearInterval(timer)
+          }
+          this._recursion(formula).then(() => {
+            cycleCount++
+            if (!this.settingConfig.isCycle) {
             this.configInformation.rotateTime = tmpTime
             this.$message.success('停止循环，执行次数为' + cycleCount)
           }
-          cycleCount++
-          this._recursion(formula)
+          })
         }, 500)
+      } else if (count === -1) {
+        this._recursion(this._reversal(formula))
       } else if (count > 20) {
         this.settingConfig.count = 20
         this.$message.warning('执行次数不能超过20')

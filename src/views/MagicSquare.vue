@@ -141,7 +141,7 @@
         <div class="formula">
           <span>自定义公式</span>
           <input class="text" type="text" v-model="settingConfig.formula" placeholder="输入公式">
-          <input class="count" type="number" v-model.number="settingConfig.count" :min="-1" max="20" placeholder="0-20">
+          <input class="count" type="number" v-model.number="settingConfig.count" :min="-1" max="1000" title="-1至1000">
           <button v-if="!settingConfig.isCycle" @click="implement()">执行</button>
           <button v-else @click="settingConfig.isCycle = false">停止</button>
         </div>
@@ -538,7 +538,7 @@ export default {
         } while (tmpKey === key)
         key = tmpKey
         disruptionFormulaKeys.push(tmpKey)
-        disruptionFormula.push(this.operation[key])
+        disruptionFormula.push(this.operation[tmpKey])
       }
       this._recursion(disruptionFormula).then(() => { // 执行打乱公式
         if (!this.record) this.outputText = disruptionFormulaKeys.join('')
@@ -573,16 +573,13 @@ export default {
     },
     _reversal (formulaArr) { // 逆转传入的步骤
       const dstArr = []
-      const tmpArr = deepCopy(formulaArr)
-      tmpArr.forEach(v => {
-        if (v[1] === 180 || v[1] === -180) {
-          dstArr.unshift(v)
-          return
-        } else {
-          v[1] = -v[1]
-          dstArr.unshift(v)
+      for (let i = formulaArr.length - 1; i >= 0; i--) {
+        const item = [...formulaArr[i]]
+        if (!(item[1] === 180 || item[1] === -180)) {
+          item[1] = -item[1]
         }
-      })
+        dstArr.push(item)
+      }
       return dstArr
     },
     _recursion (tmpFormula) { // 递归执行传入的公式
@@ -1282,36 +1279,30 @@ export default {
     implement () { // 执行输入的公式
       const count = this.settingConfig.count
       const formula = this._strToFormula(this.settingConfig.formula)
-      if (count === 0) {
-        let cycleCount = 0
-        const tmpTime = this.configInformation.rotateTime
-        this.configInformation.rotateTime = 0
-        this.settingConfig.count = 0
-        this.settingConfig.isCycle = true
-        this.$message.success('开始循环执行')
-        const timer = setInterval(() => {
+      if (count === 0) { // 无限循环执行
+        const fn = () => {
           if (!this.settingConfig.isCycle) {
-            clearInterval(timer)
+            this.$message.success('停止循环，执行次数为' + this.settingConfig.count)
+            return
           }
-          this._recursion(formula).then(() => {
-            cycleCount++
-            if (!this.settingConfig.isCycle) {
-            this.configInformation.rotateTime = tmpTime
-            this.$message.success('停止循环，执行次数为' + cycleCount)
-          }
-          })
-        }, 500)
+          this.settingConfig.count++
+          this._recursion(formula).then(fn)
+        }
+        this.$message.success('开始循环执行')
+        this.settingConfig.isCycle = true
+        fn()
       } else if (count === -1) {
         this._recursion(this._reversal(formula))
-      } else if (count > 20) {
-        this.settingConfig.count = 20
-        this.$message.warning('执行次数不能超过20')
-      } else {
-        const newFormula = []
-        for (let i = 0; i < count; i++) {
-          newFormula.push(...formula)
+      } else if (count > 1000) {
+        this.settingConfig.count = 1000
+        this.$message.warning('执行次数不能超过1000')
+      } else { // 根据输入次数循环执行
+        const fn = () => {
+          if (this.settingConfig.count <= 0) return
+          this.settingConfig.count--
+          this._recursion(formula).then(fn)
         }
-        this._recursion(newFormula)
+        fn()
       }
     },
     pieceStyle (deviation) { // 每个块的样式

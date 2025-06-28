@@ -18,7 +18,7 @@
       >
         <img src="../assets/fangxiang.png" alt="">
       </div>
-      <!-- 魔方主体(旋转) -->
+      <!-- 魔方本体(旋转) -->
       <div id="cube" class="subject-one" :style="getWholeSize + revolve" @transitionend="transitionEndHandler">
         <div
           class="diamond"
@@ -37,7 +37,7 @@
           </template>
         </div>
       </div>
-      <!-- 魔方主体(静止) -->
+      <!-- 魔方复制体(静止) -->
       <div class="subject-two" :style="getWholeSize">
         <div
           class="diamond"
@@ -140,7 +140,7 @@
         </div>
         <div class="formula">
           <span>自定义公式</span>
-          <input class="text" type="text" v-model="settingConfig.formula" placeholder="输入公式">
+          <input class="text" type="text" v-model.trim="settingConfig.formula" placeholder="输入公式">
           <input class="count" type="number" v-model.number="settingConfig.count" :min="-1" max="1000" title="-1至1000">
           <button v-if="!settingConfig.isCycle" @click="implement()">执行</button>
           <button v-else @click="settingConfig.isCycle = false">停止</button>
@@ -214,11 +214,10 @@
 </template>
 
 <script>
+import { deepCopy, throttle, pasteTextToClipboard } from '../utils/util.js'
+import { degToSuffixMap, layerToAxisMap, keyUpEventMap, keyDownEventMap } from '../utils/map.js'
 import { operation, formula, otherFormula, formulaButton, otherFormulaButton } from '../utils/formula.js'
-import deepCopy from '../utils/deepCopy.js'
-import throttle from '../utils/throttle.js'
 import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
-import pasteTextToClipboard from '../utils/pasteTextToClipboard.js'
 import colorExchange from '../utils/colorExchange.js'
 import DragMenu from '../components/DragMenu.vue'
 
@@ -308,7 +307,7 @@ export default {
           // deviation: judge ? `${companyLength}px, ${companyLength}px, 0` : `${x}px, ${y}px, ${z}px`, // 偏移量
           deviation: [x, y, z],
           layer, // 位置信息 （布尔值）
-          display: true, // 是否显示 （在旋转体旋转时使用）
+          display: true, // 是否显示 （在魔方旋转时使用）
           id: i, // 当前块在整个魔方体数组的下标
           original: v, // 原始位置信息 （自动还原时使用）
           angle: [{ // 当前块每个面的配置信息 按 上右下左前后 排列
@@ -360,7 +359,7 @@ export default {
       record: false, // 是否开始记录
       step: [], // 当前已经执行过的步骤
       outputText: '', // 文本形式输出的公式
-      revolve: '', // 旋转时给旋转体加的样式
+      revolve: '', // 旋转时给本体加的样式
       intercept: true, // 单层旋转时的节流阀 有延时
       rotateOrNot: false, // 判断是否正在旋转 无延时
       clickIsInPage: false, // 判断是否在魔方的某一个面上按下鼠标
@@ -402,7 +401,7 @@ export default {
         activeName: 1, // 控制折叠面板
         dialogVisible: false, // 控制对话框
         permanentClose: localStorage.getItem('closeTip') === '1',
-        mapping: Object.freeze({ u: '顶面', d: '底面', f: '正面', b: '背面', r: '右侧', l: '左侧', hide: '内部', border: '边框' }) // 魔方各部分名称的中文映射
+        mapping: Object.freeze({ u: '顶面', d: '底面', f: '正面', b: '背面', r: '右侧', l: '左侧', hide: '内部', border: '边框' }) // 魔方各层对应中文的映射
       },
       errorConfig: { // 公式转字符串错误配置信息
         errorData: [],
@@ -439,47 +438,23 @@ export default {
   },
   methods: {
     controlRotateHandler (layer, deg) { // 控制魔方单层旋转 核心逻辑
-      const time = (deg === 180 || deg === -180) ? this.configInformation.rotateTime * 2 : this.configInformation.rotateTime
+      const time = this.configInformation.rotateTime * (Math.abs(deg) / 90)
       const tmpFormula = [layer, deg, time] // 保存传入的初始值 为后续的记录做准备
       return new Promise(resolve => {
         if (!(this.intercept && (this.prohibitRotate || this.isImplementFormula))) return
         this.record && this._record(tmpFormula) // 记录
-        let axis
-        switch (layer) { // 根据点击的的面调整旋转的轴以及方向
-          case 'r':
-            axis = 'x'
-            break
-          case 'l':
-            axis = 'x'
-            deg = -deg
-            break
-          case 'u':
-            axis = 'y'
-            deg = -deg
-            break
-          case 'd':
-            axis = 'y'
-            break
-          case 'f':
-            axis = 'z'
-            break
-          case 'b':
-            axis = 'z'
-            deg = -deg
-            break
-        }
+        const axis = layerToAxisMap[layer][0] // 根据目标层调整旋转的轴以及方向
+        deg *= layerToAxisMap[layer][1]
         this.intercept = false // 开启节流阀
-        if (time === 0) {
+        if (time === 0) { // 为了节省性能 当旋转时间为0时直接切换色块颜色
           colorExchange(this.data, layer, deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
-          if (!this.isAutoRecoveryFormula) {
-            colorExchange(this.datas, layer, deg)
-          }
+          this.isAutoRecoveryFormula || colorExchange(this.datas, layer, deg) // 生成公式时不对复制体进行颜色变换
           this.intercept = true // 关闭节流阀
           resolve(tmpFormula)
           return
         }
         this.rotateOrNot = true
-        this._displaySwitch(false, layer) // 隐藏非旋转体被点击的层 隐藏旋转体未被点击的层
+        this._displaySwitch(false, layer) // 隐藏复制体被点击的层 隐藏本体未被点击的层
         this.revolve = `transition: all ${time / 1000}s; transform: rotate${axis}(${deg}deg);` // 通过过渡和3d转换来做出旋转的动画效果
         this.layer = layer
         this.deg = deg
@@ -490,9 +465,9 @@ export default {
     transitionEndHandler (e) { // 监听旋转过渡样式结束
       if (e.propertyName !== 'transform') return
       if (e.target.id !== 'cube') return
-      colorExchange(this.data, this.layer, this.deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
+      colorExchange(this.data, this.layer, this.deg) // 根据点击的面以及方式对两个魔方的颜色进行变换
       colorExchange(this.datas, this.layer, this.deg)
-      this.revolve = '' // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把旋转体复原到原本的旋转角度
+      this.revolve = '' // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把本体复原到原本的旋转角度
       this._displaySwitch(true, this.layer) // 恢复旋转之前被隐藏的层
       this.rotateOrNot = false
       setTimeout(() => { // 等待dom树更新完毕再关闭节流阀，防止上一次的过渡效果还未移除就再次触发旋转
@@ -530,15 +505,12 @@ export default {
       const keys = ['r', 'l', 'f', 'b', 'u', 'd']
       const disruptionFormula = [] // 公式
       const disruptionFormulaKeys = [] // 公式对应字符
-      let key = ''
-      let tmpKey = ''
+      let preKey = '', key = ''
       for (let i = 0; i < 20; i++) {
-        do { // 防止两次生成同一个步骤
-          tmpKey = keys[Math.floor(Math.random() * 6)]
-        } while (tmpKey === key)
-        key = tmpKey
-        disruptionFormulaKeys.push(tmpKey)
-        disruptionFormula.push(this.operation[tmpKey])
+        do { key = keys[Math.floor(Math.random() * 6)] } while (key === preKey) // 防止两次生成同一个步骤
+        preKey = key
+        disruptionFormulaKeys.push(key)
+        disruptionFormula.push(this.operation[key])
       }
       this._recursion(disruptionFormula).then(() => { // 执行打乱公式
         if (!this.record) this.outputText = disruptionFormulaKeys.join('')
@@ -548,15 +520,15 @@ export default {
       this.outputText = ''
       this.record = true
     },
-    closeRecordHandler (judge = false) { // 结束记录
+    closeRecordHandler () { // 结束记录
       this.step = []
       const formula = this._strToFormula(this.outputText) // 将记录的字符串转换为公式
       const simplifyFormula = this._simplifyStepsHanlder(formula) // 简化公式
-      const str = this._formulaToStr(simplifyFormula, true) // 公式转字符串
       const simplifyStr = this._formulaToStr(simplifyFormula) // 公式转字符串
-      this.pasteTextToClipboard(judge ? simplifyStr : str) // 将最终公式粘贴到剪贴板
+      this.pasteTextToClipboard(simplifyStr) // 将公式粘贴到剪贴板
       console.log('原始公式：' + this.outputText) // 控制台输出原始公式
       console.log('简化公式：' + simplifyStr) // 控制台输出简化公式
+      console.log('公式数组：' + this._formulaToStr(simplifyFormula, true)) // 公式转为适用于程序识别的字符串
       this.record = false
     },
     rollBackHandler () { // 撤销
@@ -575,9 +547,7 @@ export default {
       const dstArr = []
       for (let i = formulaArr.length - 1; i >= 0; i--) {
         const item = [...formulaArr[i]]
-        if (!(item[1] === 180 || item[1] === -180)) {
-          item[1] = -item[1]
-        }
+        item[1] !== 180 && item[1] !== -180 && (item[1] = -item[1])
         dstArr.push(item)
       }
       return dstArr
@@ -1080,7 +1050,7 @@ export default {
         function runTasksSequentially(tasks) {
           if (tasks.length === 0) {
             that.isAutoRecovery = false
-            that.closeRecordHandler(true)
+            that.closeRecordHandler()
             that.$message.success('完成')
             res()
             return
@@ -1106,40 +1076,15 @@ export default {
       })
     },
     _keyUpEvent (e) { // 键盘弹起事件
-      switch(e.key) {
-        case ' ':
-          if (e.ctrlKey) this.menuMoveConfig.display = !this.menuMoveConfig.display // 关闭/打开菜单弹窗
-          else this.rubikSCubeRotateConfig.x = this.rubikSCubeRotateConfig.y = 0 // 初始化魔方视角
-          break
-        case 'Enter':
-          if (e.shiftKey) this._autoRecovery() // 复原
-          else this.disruptionHanlder() // 打乱
-          break
-        case 'z':
-          if (e.ctrlKey) this.rollBackHandler() // 撤销 （记录状态下可用）
-          break
-        case 'i':
-          if (e.ctrlKey) this.settingConfig.display = !this.settingConfig.display // 关闭/打开设置弹窗
-          break
-      }
+      const action = keyUpEventMap[e.key]
+      if (!action) return
+      if (e.ctrlKey && action.ctrl) return action.ctrl(this)
+      if (e.shiftKey && action.shift) return action.shift(this)
+      if (action.normal) return action.normal(this)
     },
     _keyDownEvent (e) { // 键盘按下事件
-      switch(e.key) { // 控制魔方视角
-        case 'ArrowUp':
-          this.rubikSCubeRotateConfig.x >= 45 || this.rubikSCubeRotateConfig.x++
-          break
-        case 'ArrowDown':
-          this.rubikSCubeRotateConfig.x <= -45 || this.rubikSCubeRotateConfig.x--
-          break
-        case 'ArrowLeft':
-          this.rubikSCubeRotateConfig.y <= -360 && this._recovery('y')
-          this.rubikSCubeRotateConfig.y--
-          break
-        case 'ArrowRight':
-          this.rubikSCubeRotateConfig.y >= 360 && this._recovery('y')
-          this.rubikSCubeRotateConfig.y++
-          break
-      }
+      const action = keyDownEventMap[e.key]
+      action && action(this)
     },
     _recovery (axis, callback, value = 0) { // 魔方回正
       this.transitionTime = 0
@@ -1172,50 +1117,31 @@ export default {
       }
     },
     _strToFormula (originStr) { // 字符串转公式
-      let removeSpace = originStr.replace(/\s/g, '')
-      let str = removeSpace.replace(/1/g, '\'')
+      let str = originStr.replace(/'/g, '1')
       const formula = []
-      const errorStrIndex = []
-      for (let i = 0, n = str.length; i < n; i++) {
-        const layer = str[i]
-        const angle = str[i + 1]
-        if (/[a-z]/.test(angle)) {
-          const tmpFormula = operation[layer]
-          tmpFormula ? formula.push(tmpFormula) : errorStrIndex.push(i)
-        } else {
-          const tmpFormula = angle === '\'' ? operation[layer + '1'] : operation[layer + angle]
-          tmpFormula ? formula.push(tmpFormula) : errorStrIndex.push(i, i + 1)
-          i++
-        }
+      const errorStrIndex = new Map()
+      for (let l = 0, r = 1, len = str.length; r <= len; r++) {
+        if (!(/[a-z]/.test(str[r]) || r === len)) continue
+        const formulaItem = operation[str.slice(l, r)]
+        if (formulaItem) formula.push(formulaItem)
+        else while (l < r) errorStrIndex.set(l++, true)
+        l = r
       }
-      if (errorStrIndex.length) {
-        this._strToFormulaErrorHandler(removeSpace, errorStrIndex)
+      if (errorStrIndex.size) {
+        this._strToFormulaErrorHandler(originStr, errorStrIndex)
         return []
       }
       return formula
     },
     _formulaToStr (formula, isSplicingArrForm = false) { // 公式转字符串
-      let str = ''
-      const strArr = []
-      formula.forEach(value => {
-        if (isSplicingArrForm) {
-          if (value[1] === -90) strArr.push(value[0] + '1')
-          else if (value[1] === 180 || value[1] === -180) strArr.push(value[0] + '2')
-          else strArr.push(value[0])
-        } else {
-          str += value[0]
-          if (value[1] === -90) str += "'"
-          else if (value[1] === 180 || value[1] === -180) str += '2'
-        }
-      })
-      return isSplicingArrForm ? '[' + strArr.join(', ') + ']' : str
+      const strArr = formula.map(([layer, deg]) => layer + degToSuffixMap[deg])
+      return isSplicingArrForm ? '[' + strArr.join(', ') + ']' : strArr.join('').replace(/1/g, '\'')
     },
     _strToFormulaErrorHandler (str, errorStrIndex) { // 转换错误处理程序
       const errorData = []
       for (let i = 0; i < str.length; i++) {
-        const item = { str: '', error: false }
-        item.str = str[i]
-        if (errorStrIndex.includes(i)) item.error = true
+        const item = { str: str[i], error: false }
+        if (errorStrIndex.has(i)) item.error = true
         errorData.push(item)
       }
       const config = this.errorConfig
@@ -1234,38 +1160,17 @@ export default {
     _simplifyStepsHanlder(originaFlormula) { // 简化公式
       const simplifyFormula = []
       for(let i = 0, n = originaFlormula.length; i < n; i++) {
-        let tmpStep = simplifyFormula[simplifyFormula.length - 1]
-        const step = originaFlormula[i]
-        if (!tmpStep) {
-          simplifyFormula.push(step)
+        const preStep = simplifyFormula[simplifyFormula.length - 1]
+        const curStep = originaFlormula[i]
+        if (!preStep || curStep[0] !== preStep[0]) { // 没有前一步或前后步骤层级不一致则不做处理
+          simplifyFormula.push(curStep)
           continue
         }
-        const sum = step[1] + tmpStep[1] - 0
-        if (step[0] === tmpStep[0]) {
-          simplifyFormula.pop()
-          switch (sum) {
-            case 270:
-              simplifyFormula.push([step[0], -90])
-            break
-            case -270:
-              simplifyFormula.push([step[0], 90])
-            break
-            case 180:
-              simplifyFormula.push([step[0], 180])
-            break
-            case -180:
-              simplifyFormula.push([step[0], 180])
-            break
-            case 90:
-              simplifyFormula.push([step[0], 90])
-            break
-            case -90:
-              simplifyFormula.push([step[0], -90])
-            break
-          }
-        } else {
-          simplifyFormula.push(step)
-        }
+        simplifyFormula.pop() // 删除上一步
+        const sum = curStep[1] + preStep[1] // 两步旋转角度叠加
+        if (sum === 0) continue
+        const map = { '270': -90, '-270': 90, '-180': 180 }
+        simplifyFormula.push([curStep[0], map[sum] || sum])
       }
       return simplifyFormula
     },
@@ -1278,36 +1183,30 @@ export default {
     implement () { // 执行输入的公式
       const count = this.settingConfig.count
       const formula = this._strToFormula(this.settingConfig.formula)
+      if (formula.length === 0) return
+      if (count > 1000) {
+        this.settingConfig.count = 1000
+        this.$message.warning('执行次数不能超过1000')
+        return
+      }
+      if (count === -1) { // 逆向执行
+        this._recursion(this._reversal(formula))
+        return
+      }
       if (count === 0) { // 无限循环执行
         const fn = () => {
-          if (!this.settingConfig.isCycle) {
-            this.$message.success('停止循环，执行次数为' + this.settingConfig.count)
-            return
-          }
+          if (!this.settingConfig.isCycle) return this.$message.success('停止循环，执行次数为' + this.settingConfig.count)
           this.settingConfig.count++
-          this._recursion(formula).then(() => {
-            if (this.configInformation.rotateTime === 0) {
-              setTimeout(fn, 50)
-            } else fn()
-          })
+          this._recursion(formula).then(() => this.configInformation.rotateTime ? fn() : setTimeout(fn, 50))
         }
         this.$message.success('开始循环执行')
         this.settingConfig.isCycle = true
         fn()
-      } else if (count === -1) {
-        this._recursion(this._reversal(formula))
-      } else if (count > 1000) {
-        this.settingConfig.count = 1000
-        this.$message.warning('执行次数不能超过1000')
       } else { // 根据输入次数循环执行
         const fn = () => {
           if (this.settingConfig.count <= 0) return
           this.settingConfig.count--
-          this._recursion(formula).then(() => {
-            if (this.configInformation.rotateTime === 0) {
-              setTimeout(fn, 50)
-            } else fn()
-          })
+          this._recursion(formula).then(() => this.configInformation.rotateTime ? fn() : setTimeout(fn, 50))
         }
         fn()
       }

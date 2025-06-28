@@ -1,64 +1,36 @@
 <template>
   <div class="container">
     <div class="bg"></div>
-     <!-- :style="`background: ${configInformation.tmpBgcColor};`" -->
+    <!-- :style="`background: ${configInformation.tmpBgcColor};`" -->
     <!-- 魔方 -->
-    <div class="box"
-      :style="getBoxStyle"
-      @mousedown="mouseDownHandler"
-      >
+    <div class="box" :style="getBoxStyle" @mousedown="mouseDownHandler">
       <!-- 悬浮在魔方每个面上的遮罩层 鼠标点击时传递相应的参数以控制魔方旋转 -->
-      <div class="tips"
-        v-show="hideTip"
-        v-for="data in tips"
-        :key="data.id"
-        @click="clickHandler(data.id, true)"
+      <div class="tips" v-show="hideTip" v-for="data in tips" :key="data.id" @click="clickHandler(data.id, true)"
         @contextmenu.prevent="clickHandler(data.id, false)"
-        :style="`${getWholeSize} transform: ${data.deg} translateZ(${151 + configInformation.companyLength - 100}px);`"
-      >
+        :style="`${getWholeSize} transform: ${data.deg} translateZ(${151 + configInformation.companyLength - 100}px);`">
         <img src="../assets/fangxiang.png" alt="">
       </div>
       <!-- 魔方本体(旋转) -->
       <div id="cube" class="subject-one" :style="getWholeSize + revolve" @transitionend="transitionEndHandler">
-        <div
-          class="diamond"
-          v-for="(data, i) in data"
-          :key="data.id"
-          :style="pieceStyle(data.deviation)"
-          >
+        <div class="diamond" v-for="(data, i) in data" :key="data.id" :style="pieceStyle(data.deviation)">
           <template v-for="(color, j) in dynamicData[i].color">
-            <div
-              v-if="!(settingConfig.hideInside && color === 'hide')"
-              :key="j"
-              :style="style(dynamicData[i].display, color, j)"
-              ></div>
+            <div v-if="!(settingConfig.hideInside && color === 'hide')" :key="j"
+              :style="style(dynamicData[i].display, color, j)"></div>
           </template>
         </div>
       </div>
       <!-- 魔方复制体(静止) -->
       <div class="subject-two" :style="getWholeSize">
-        <div
-          class="diamond"
-          v-for="(data, i) in datas"
-          :key="data.id"
-          :style="pieceStyle(data.deviation)"
-          >
+        <div class="diamond" v-for="(data, i) in datas" :key="data.id" :style="pieceStyle(data.deviation)">
           <template v-for="(color, j) in dynamicDatas[i].color">
-            <div
-              v-if="!(settingConfig.hideInside && color === 'hide')"
-              :key="j"
-              :style="style(dynamicDatas[i].display, color, j)"
-              ></div>
+            <div v-if="!(settingConfig.hideInside && color === 'hide')" :key="j"
+              :style="style(dynamicDatas[i].display, color, j)"></div>
           </template>
         </div>
       </div>
     </div>
     <!-- 性能提示弹窗 -->
-    <el-dialog
-      title="提示"
-      :visible.sync="settingConfig.dialogVisible"
-      width="30%"
-      :before-close="handleClose">
+    <el-dialog title="提示" :visible.sync="settingConfig.dialogVisible" width="30%" :before-close="handleClose">
       <span>同时显示魔方内部细节和边框会消耗大量性能，魔方拖动旋转时可能会造成页面卡顿</span>
       <span slot="footer" class="dialog-footer">
         <el-button type="success" plain @click="settingConfig.hideInside = true">隐藏内部</el-button>
@@ -71,22 +43,15 @@
       <div class="head">
         <ul class="nav">
           <li @click="switchFormula = true" :style="switchFormula && 'background: rgba(255, 255, 255, .5)'">还原公式</li>
-          <li @click="switchFormula = false; cancelHanlder()" :style="switchFormula || 'background: rgba(255, 255, 255, .5)'">其他公式</li>
-          <li
-            class="move-control"
-            style="flex: auto;"
-            id="drag"
-            ></li>
+          <li @click="switchFormula = false; cancelHanlder()"
+            :style="switchFormula || 'background: rgba(255, 255, 255, .5)'">其他公式</li>
+          <li class="move-control" style="flex: auto;" id="drag"></li>
         </ul>
       </div>
       <div class="body">
         <ul v-if="switchFormula">
-          <li
-            v-for="item in formulaButton"
-            :key="item.key"
-            @click="choiceFormulaHanlder(item.key, item)"
-            :style="`background: ${item.active ? 'white' : ''};`"
-          >
+          <li v-for="item in formulaButton" :key="item.key" @click="choiceFormulaHanlder(item.key, item)"
+            :style="`background: ${item.active ? 'white' : ''};`">
             <img :src="require('../assets/formulaImg/' + item.key + '.png')" alt="寄">
             <span>{{ item.name }}</span>
           </li>
@@ -95,12 +60,9 @@
           </li>
         </ul>
         <ul v-else>
-          <li
-            v-for="item in otherFormulaButton"
-            :key="item.key"
+          <li v-for="item in otherFormulaButton" :key="item.key"
             @click="implementFormulaHanlder(otherFormula[item.key], false)"
-            @contextmenu.prevent="implementFormulaHanlder(otherFormula[item.key], true)"
-          >
+            @contextmenu.prevent="implementFormulaHanlder(otherFormula[item.key], true)">
             <img :src="require('../assets/otherFormulaImg/' + item.key + '.png')" alt="寄">
             <span>{{ item.name }}</span>
           </li>
@@ -154,7 +116,8 @@
         </div>
         <div class="spacing">
           <span>间距</span>
-          <el-slider class="slider" v-model="configInformation.companyLength" :min="100" :max="300" :step="5"></el-slider>
+          <el-slider class="slider" v-model="configInformation.companyLength" :min="100" :max="300"
+            :step="5"></el-slider>
         </div>
         <!-- <div class="bg-color">
           <span>背景颜色</span>
@@ -165,7 +128,8 @@
             <ul>
               <template v-for="(layer, key, index) in configInformation.pageColor">
                 <li :key="index" v-if="key !== 'transparency'">
-                  <el-ColorPicker v-model="configInformation.pageColor[key]" @active-change="colorChange($event, key)"></el-ColorPicker>
+                  <el-ColorPicker v-model="configInformation.pageColor[key]"
+                    @active-change="colorChange($event, key)"></el-ColorPicker>
                   <span>{{ settingConfig.mapping[key] }}</span>
                 </li>
               </template>
@@ -175,12 +139,14 @@
             <ul>
               <li>
                 <span>所有面</span>
-                <el-slider v-model="configInformation.pageColor.transparency.whole" :disabled="!settingConfig.enableTransparentColor" :min="0" :max="1" :step="0.01"></el-slider>
+                <el-slider v-model="configInformation.pageColor.transparency.whole"
+                  :disabled="!settingConfig.enableTransparentColor" :min="0" :max="1" :step="0.01"></el-slider>
               </li>
               <template v-for="(name, key, index) in settingConfig.mapping">
                 <li :key="index" v-if="key !== 'border'">
                   <span>{{ name }}</span>
-                  <el-slider v-model="configInformation.pageColor.transparency[key]" :disabled="!settingConfig.enableTransparentColor" :min="0" :max="1" :step="0.01"></el-slider>
+                  <el-slider v-model="configInformation.pageColor.transparency[key]"
+                    :disabled="!settingConfig.enableTransparentColor" :min="0" :max="1" :step="0.01"></el-slider>
                 </li>
               </template>
             </ul>
@@ -193,11 +159,8 @@
       <div class="head" id="drag">公式解析出错</div>
       <div class="body">
         <div class="formula-str">
-          <span
-            v-for="(value, index) in errorConfig.errorData"
-            :key="index"
-            :style="{ color: value.error ? 'red' : 'black' }"
-          >{{ value.str }}</span>
+          <span v-for="(value, index) in errorConfig.errorData" :key="index"
+            :style="{ color: value.error ? 'red' : 'black' }">{{ value.str }}</span>
         </div>
         <div class="rewrite">
           <textarea cols="30" rows="5" v-model="errorConfig.formula" placeholder="请修改公式"></textarea>
@@ -233,12 +196,12 @@ export default {
     ]
     const allColor = [] // 初始魔方的所有块每个面的颜色 复原时使用
     const map = {
-      u: {cI: 0,axis: 1,num: 0},
-      r: {cI: 1,axis: 0,num: 2},
-      d: {cI: 2,axis: 1,num: 2},
-      l: {cI: 3,axis: 0,num: 0},
-      f: {cI: 4,axis: 2,num: 1},
-      b: {cI: 5,axis: 2,num: -1},
+      u: { cI: 0, axis: 1, num: 0 },
+      r: { cI: 1, axis: 0, num: 2 },
+      d: { cI: 2, axis: 1, num: 2 },
+      l: { cI: 3, axis: 0, num: 0 },
+      f: { cI: 4, axis: 2, num: 1 },
+      b: { cI: 5, axis: 2, num: -1 },
     }
     const data = _optimizationDataHandler()
     const datas = deepCopy(data)
@@ -246,9 +209,9 @@ export default {
       const staticData = []
       const dynamicData = []
       basicPositioInfo.forEach((positioStr, index) => {
-        const deviation = [1,1,0]
+        const deviation = [1, 1, 0]
         const color = Array(6).fill('hide')
-        const layer = {u: false, d: false, r: false, l: false, f: false, b: false} // 当前块的位置 用布尔值代替字符串方便后续操作
+        const layer = { u: false, d: false, r: false, l: false, f: false, b: false } // 当前块的位置 用布尔值代替字符串方便后续操作
         for (let i = 0; i < 3; i++) { // 遍历字符串 v
           const str = positioStr[i]
           if (!map[str]) continue // 排除 center 块
@@ -344,12 +307,12 @@ export default {
     }
   },
   computed: {
-    getWholeSize () {
+    getWholeSize() {
       const companyLength = this.configInformation.companyLength
       const size = `width: ${300 + (companyLength - 100) * 2}px; height: ${300 + (companyLength - 100) * 2}px;`
       return size
     },
-    getBoxStyle () {
+    getBoxStyle() {
       const { rubikSCubeRotateConfig, transitionTime } = this
       const transform = `transform: translate(-50%, -50%) rotateX(${initialAngle.x + rubikSCubeRotateConfig.x}deg) rotateY(${initialAngle.y + rubikSCubeRotateConfig.y}deg);`
       const transition = `transition: all ${transitionTime}s;`
@@ -357,20 +320,20 @@ export default {
     }
   },
   watch: {
-    'settingConfig.hideInside' (newValue) {
+    'settingConfig.hideInside'(newValue) {
       this.settingConfig.dialogVisible = this.settingConfig.permanentClose ? false : !newValue && !this.settingConfig.hideBorder
     },
-    'settingConfig.hideBorder' (newValue) {
+    'settingConfig.hideBorder'(newValue) {
       this.settingConfig.dialogVisible = this.settingConfig.permanentClose ? false : !newValue && !this.settingConfig.hideInside
     },
-    'configInformation.rotateTime' (newValue) {
+    'configInformation.rotateTime'(newValue) {
       if (typeof newValue !== 'number') {
         this.configInformation.rotateTime = 0
       }
     }
   },
   methods: {
-    controlRotateHandler (layer, deg) { // 控制魔方单层旋转 核心逻辑
+    controlRotateHandler(layer, deg) { // 控制魔方单层旋转 核心逻辑
       const time = this.configInformation.rotateTime * (Math.abs(deg) / 90)
       const tmpFormula = [layer, deg, time] // 保存传入的初始值 为后续的记录做准备
       return new Promise(resolve => {
@@ -395,7 +358,7 @@ export default {
         this.tmpFormula = tmpFormula
       })
     },
-    transitionEndHandler (e) { // 监听旋转过渡样式结束
+    transitionEndHandler(e) { // 监听旋转过渡样式结束
       if (e.propertyName !== 'transform') return
       if (e.target.id !== 'cube') return
       colorExchange(this.dynamicData, this.layer, this.deg) // 根据点击的面以及方式对两个魔方的颜色进行变换
@@ -408,7 +371,7 @@ export default {
         this.resolve(this.tmpFormula)
       }, 0)
     },
-    clickHandler (id, leftOrRight) { // 鼠标点击魔方的面
+    clickHandler(id, leftOrRight) { // 鼠标点击魔方的面
       if (this.isImplementFormula) return
       if (!this.prohibitRotate && !this.isAutoRecovery) return // 魔方整体旋转时禁止单层旋转
       if (this.selectedFormula) {
@@ -417,23 +380,23 @@ export default {
         this.controlRotateHandler(id, leftOrRight ? -90 : 90)
       }
     },
-    choiceFormulaHanlder (formulaName, data) { // 选中某一个公式
+    choiceFormulaHanlder(formulaName, data) { // 选中某一个公式
       this.selectedFormula = true
       this.formulaName = formulaName
       this.formulaButton.forEach(v => v.active = false)
       data.active = true
     },
-    cancelHanlder () { // 取消选中公式
+    cancelHanlder() { // 取消选中公式
       this.selectedFormula = false
       this.formulaButton.forEach(v => v.active = false)
     },
-    implementFormulaHanlder (formula, isNeedReversal = this.reversal) { // 通过选择的公式和点击的层选择公式并交给递归函数执行
+    implementFormulaHanlder(formula, isNeedReversal = this.reversal) { // 通过选择的公式和点击的层选择公式并交给递归函数执行
       if (isNeedReversal) {
         formula = this._reversal(deepCopy(formula))
       }
       this._recursion(formula)
     },
-    disruptionHanlder () { // 打乱
+    disruptionHanlder() { // 打乱
       if (!this.intercept) return // 单层旋转时退出逻辑
       const keys = ['r', 'l', 'f', 'b', 'u', 'd']
       const disruptionFormula = [] // 公式
@@ -449,11 +412,11 @@ export default {
         if (!this.record) this.outputText = disruptionFormulaKeys.join('')
       })
     },
-    startRecordHandler () { // 开始记录
+    startRecordHandler() { // 开始记录
       this.outputText = ''
       this.record = true
     },
-    closeRecordHandler () { // 结束记录
+    closeRecordHandler() { // 结束记录
       this.step = []
       const formula = this._strToFormula(this.outputText) // 将记录的字符串转换为公式
       const simplifyFormula = this._simplifyStepsHanlder(formula) // 简化公式
@@ -464,7 +427,7 @@ export default {
       console.log('公式数组：' + this._formulaToStr(simplifyFormula, true)) // 公式转为适用于程序识别的字符串
       this.record = false
     },
-    rollBackHandler () { // 撤销
+    rollBackHandler() { // 撤销
       if (!this.intercept) return
       if (!this.step.length) return
       this.record = false // 撤销时关闭记录功能
@@ -472,11 +435,11 @@ export default {
       this.controlRotateHandler(...this._reversal([this.step.pop()])[0])
         .then(() => this.record = true) // 撤销完成时再次打开记录
     },
-    _record (formula) { // 记录
+    _record(formula) { // 记录
       this.step.push([...formula])
       this.outputText += this._formulaToStr([formula])
     },
-    _reversal (formulaArr) { // 逆转传入的步骤
+    _reversal(formulaArr) { // 逆转传入的步骤
       const dstArr = []
       for (let i = formulaArr.length - 1; i >= 0; i--) {
         const item = [...formulaArr[i]]
@@ -485,7 +448,7 @@ export default {
       }
       return dstArr
     },
-    _recursion (formula) { // 递归执行传入的公式
+    _recursion(formula) { // 递归执行传入的公式
       const that = this
       return new Promise(res => {
         let count = 0
@@ -500,10 +463,10 @@ export default {
         fn()
       })
     },
-    _displaySwitch (boolean, layer) { // 旋转时控制魔方显示部分
+    _displaySwitch(boolean, layer) { // 旋转时控制魔方显示部分
       this.data.forEach((v, i) => v.layer[layer] ? this.dynamicDatas[i].display = boolean : this.dynamicData[i].display = boolean)
     },
-    _restore () { // 通过重置各个色块颜色复原
+    _restore() { // 通过重置各个色块颜色复原
       for (let i = 0, n = this.data.length; i < n; i++) {
         const itemAngle = this.data[i].angle
         for (let j = 0, n = itemAngle.length; j < n; j++) {
@@ -513,7 +476,7 @@ export default {
         }
       }
     },
-    _autoRecovery (data = this.data, dynamicData = this.dynamicData) { // 以层先法逻辑自动生成公式并复原
+    _autoRecovery(data = this.data, dynamicData = this.dynamicData) { // 以层先法逻辑自动生成公式并复原
       const that = this
       that.isAutoRecovery = true
       that.startRecordHandler()
@@ -528,7 +491,7 @@ export default {
       }
 
       // 底层十字架复原 第一步
-      function bottomCrossOne (res) { // 从底层和中间层的棱块中寻找有白色面的块
+      function bottomCrossOne(res) { // 从底层和中间层的棱块中寻找有白色面的块
         let formula = [] // 需执行的公式
         if (!positionError([19, 21, 23, 25])) {
           if (dynamicData[19].color[2] !== 'd') formula.push(...allFormula.a['f'])
@@ -576,7 +539,7 @@ export default {
           bottomCrossOne(res)
         })
       }
-      function free (index, formula) {
+      function free(index, formula) {
         if (judge(index)) return formula
         let indexArr = subscript.topEdge.filter(v => v !== index)
         for (let i = 0; i < indexArr.length; i++) {
@@ -589,7 +552,7 @@ export default {
             return [...tmpFormula, ...formula]
           }
         }
-        function judge (index) {
+        function judge(index) {
           for (let i = 0; i < 6; i++) {
             let tmpColor = dynamicData[index].color[i]
             if (tmpColor === 'd') {
@@ -599,7 +562,7 @@ export default {
           return true
         }
       }
-      function rightOrLeft (str, callbackRight, callbackLeft, callbackOther) {
+      function rightOrLeft(str, callbackRight, callbackLeft, callbackOther) {
         if (/r/.test(str)) {
           callbackRight && callbackRight()
         } else if (/l/.test(str)) {
@@ -610,7 +573,7 @@ export default {
       }
 
       // 底层十字架复原 第二步
-      function bottomCrossTwo (res) {
+      function bottomCrossTwo(res) {
         const formula = []
         for (let i = 0; i < subscript.topEdge.length; i++) {
           if (formula.length !== 0) break
@@ -650,7 +613,7 @@ export default {
           bottomCrossTwo(res)
         })
       }
-      function topRotate (diff) {
+      function topRotate(diff) {
         switch (diff) {
           case 2:
             return [u1]
@@ -668,7 +631,7 @@ export default {
             return []
         }
       }
-      function judgeInvert (item, layer) {
+      function judgeInvert(item, layer) {
         if (item.color[0] !== 'd') {
           return allFormula.a[layer]
         }
@@ -676,7 +639,7 @@ export default {
       }
 
       // 底层角块 复位
-      function bottomCornerPosition (res) {
+      function bottomCornerPosition(res) {
         const formula = []
         for (let i = 0; i < subscript.topCorner.length; i++) {
           if (formula.length !== 0) break
@@ -726,7 +689,7 @@ export default {
         }
       }
       // 底层角块 复原
-      function bottomCorner (res) {
+      function bottomCorner(res) {
         const formula = []
         if (dynamicData[18].color[2] !== 'd') formula.push(...allFormula.c['f'])
         if (dynamicData[20].color[2] !== 'd') formula.push(...allFormula.c['l'])
@@ -737,7 +700,7 @@ export default {
       }
 
       // 中间层棱块 复位
-      function centerEdgePosition (res) {
+      function centerEdgePosition(res) {
         const formula = []
         for (let i = 0; i < subscript.topEdge.length; i++) {
           if (formula.length !== 0) break
@@ -788,7 +751,7 @@ export default {
         }
       }
       // 中间层棱块 复原
-      function center (res) {
+      function center(res) {
         const formula = []
         if (dynamicData[9].color[4] !== 'f') formula.push(...allFormula.centerLayerFlip['f'])
         if (dynamicData[11].color[4] !== 'f') formula.push(...allFormula.centerLayerFlip['l'])
@@ -798,7 +761,7 @@ export default {
         that._recursion(formula, false).then(() => res())
       }
 
-      function positionError (arr) { // 判断块是否在自己原本的位置
+      function positionError(arr) { // 判断块是否在自己原本的位置
         for (let i = 0; i < arr.length; i++) {
           const item = data[arr[i]]
           const colorItem = dynamicData[arr[i]]
@@ -820,7 +783,7 @@ export default {
       }
 
       // 顶层十字架 复位
-      function topCrossPosition (res) {
+      function topCrossPosition(res) {
         const formula = []
         let counter = []
         if (dynamicData[1].color[0] === 'u') counter.push(1)
@@ -855,27 +818,27 @@ export default {
                 } else {
                   formula.push(...allFormula.topLayerOne['b'])
                 }
-              break
+                break
             }
             break
         }
         that._recursion(formula).then(() => res())
       }
       // 顶面复原
-      function topSurface (res) {
+      function topSurface(res) {
         const formula = []
         const counter = []
         if (dynamicData[0].color[0] !== 'u') {
-          counter.push({id: 0, clockwise: dynamicData[0].color[1] === 'u'})
+          counter.push({ id: 0, clockwise: dynamicData[0].color[1] === 'u' })
         }
         if (dynamicData[2].color[0] !== 'u') {
-          counter.push({id: 2, clockwise: dynamicData[2].color[4] === 'u'})
+          counter.push({ id: 2, clockwise: dynamicData[2].color[4] === 'u' })
         }
         if (dynamicData[4].color[0] !== 'u') {
-          counter.push({id: 4, clockwise: dynamicData[4].color[3] === 'u'})
+          counter.push({ id: 4, clockwise: dynamicData[4].color[3] === 'u' })
         }
         if (dynamicData[6].color[0] !== 'u') {
-          counter.push({id: 6, clockwise: dynamicData[6].color[5] === 'u'})
+          counter.push({ id: 6, clockwise: dynamicData[6].color[5] === 'u' })
         }
         let sum
         switch (counter.length) {
@@ -912,7 +875,7 @@ export default {
         that._recursion(formula).then(() => topSurface(res))
       }
       // 顶层角块 复位
-      function topCorner (res) {
+      function topCorner(res) {
         const formula = []
         const counter = []
         if (dynamicData[0].color[4] === dynamicData[2].color[4]) counter.push('f')
@@ -941,7 +904,7 @@ export default {
         that._recursion(formula).then(() => topCorner(res))
       }
       // 顶层棱块 复位
-      function topEdgePosition (res) {
+      function topEdgePosition(res) {
         const formula = []
         const color = [
           dynamicData[1].color[4],
@@ -984,7 +947,7 @@ export default {
             handler(resolve)
           })
         }
-        const tasks = [bottomCrossOne, bottomCrossTwo, bottomCornerPosition, bottomCorner, centerEdgePosition, center, topCrossPosition, topSurface, topCorner, topEdgePosition ]
+        const tasks = [bottomCrossOne, bottomCrossTwo, bottomCornerPosition, bottomCorner, centerEdgePosition, center, topCrossPosition, topSurface, topCorner, topEdgePosition]
         function runTasksSequentially(tasks) {
           if (tasks.length === 0) {
             that.isAutoRecovery = false
@@ -1002,7 +965,7 @@ export default {
         runTasksSequentially(tasks)
       })
     },
-    _autoRecoveryFormula () { // 仅生成复原公式 不复原
+    _autoRecoveryFormula() { // 仅生成复原公式 不复原
       const that = this
       that.isAutoRecoveryFormula = true // 节流阀
       const tmpTime = that.configInformation.rotateTime // 保存正常状态下的单层旋转时间
@@ -1013,18 +976,18 @@ export default {
         that.isAutoRecoveryFormula = false
       })
     },
-    _keyUpEvent (e) { // 键盘弹起事件
+    _keyUpEvent(e) { // 键盘弹起事件
       const action = keyUpEventMap[e.key]
       if (!action) return
       if (e.ctrlKey && action.ctrl) return action.ctrl(this)
       if (e.shiftKey && action.shift) return action.shift(this)
       if (action.normal) return action.normal(this)
     },
-    _keyDownEvent (e) { // 键盘按下事件
+    _keyDownEvent(e) { // 键盘按下事件
       const action = keyDownEventMap[e.key]
       action && action(this)
     },
-    _recovery (axis, callback, value = 0) { // 魔方回正
+    _recovery(axis, callback, value = 0) { // 魔方回正
       this.transitionTime = 0
       this.rubikSCubeRotateConfig[axis] = value
       setTimeout(() => {
@@ -1032,7 +995,7 @@ export default {
         callback && callback()
       }, 0)
     },
-    mouseDownHandler (e) { // 鼠标在某个面上按下时触发
+    mouseDownHandler(e) { // 鼠标在某个面上按下时触发
       const config = this.rubikSCubeRotateConfig // 魔方拖动旋转所需的配置
       this.clickIsInPage = true
       config.downX = e.pageX // 记录鼠标按下时的坐标
@@ -1041,7 +1004,7 @@ export default {
       config.tmpY = config.y
       addEventListener('mousemove', this._mouseMove) // 监听鼠标移动事件
     },
-    _mouseMove (e) { // 鼠标移动时的回调
+    _mouseMove(e) { // 鼠标移动时的回调
       const config = this.rubikSCubeRotateConfig // 魔方拖动旋转所需的配置
       this.prohibitRotate = false // 节流阀 控制魔方整体旋转时阻止单层旋转和执行公式
       let diffX = Math.floor((e.pageX - config.downX) / 2) // 记录鼠标移动后与按下时的坐标差值
@@ -1054,7 +1017,7 @@ export default {
         config.y = diffX + config.tmpY
       }
     },
-    _strToFormula (originStr) { // 字符串转公式
+    _strToFormula(originStr) { // 字符串转公式
       let str = originStr.replace(/'/g, '1')
       const formula = []
       const errorStrIndex = new Map()
@@ -1071,11 +1034,11 @@ export default {
       }
       return formula
     },
-    _formulaToStr (formula, isSplicingArrForm = false) { // 公式转字符串
+    _formulaToStr(formula, isSplicingArrForm = false) { // 公式转字符串
       const strArr = formula.map(([layer, deg]) => layer + degToSuffixMap[deg])
       return isSplicingArrForm ? '[' + strArr.join(', ') + ']' : strArr.join('').replace(/1/g, '\'')
     },
-    _strToFormulaErrorHandler (str, errorStrIndex) { // 转换错误处理程序
+    _strToFormulaErrorHandler(str, errorStrIndex) { // 转换错误处理程序
       const errorData = []
       for (let i = 0; i < str.length; i++) {
         const item = { str: str[i], error: false }
@@ -1087,7 +1050,7 @@ export default {
       config.formula = ''
       config.display = true
     },
-    reExecute () { // 重新执行公式
+    reExecute() { // 重新执行公式
       const config = this.errorConfig
       config.display = false
       if (config.formula) {
@@ -1097,7 +1060,7 @@ export default {
     },
     _simplifyStepsHanlder(originaFlormula) { // 简化公式
       const simplifyFormula = []
-      for(let i = 0, n = originaFlormula.length; i < n; i++) {
+      for (let i = 0, n = originaFlormula.length; i < n; i++) {
         const preStep = simplifyFormula[simplifyFormula.length - 1]
         const curStep = originaFlormula[i]
         if (!preStep || curStep[0] !== preStep[0]) { // 没有前一步或前后步骤层级不一致则不做处理
@@ -1112,13 +1075,13 @@ export default {
       }
       return simplifyFormula
     },
-    colorChange (color, layer) { // 魔方面颜色更改
+    colorChange(color, layer) { // 魔方面颜色更改
       this.configInformation.pageColor[layer] = color
     },
-    bgColorChange (newColor) { // 背景颜色更改
+    bgColorChange(newColor) { // 背景颜色更改
       this.configInformation.bgcColor = newColor
     },
-    implement () { // 执行输入的公式
+    implement() { // 执行输入的公式
       const count = this.settingConfig.count
       const formula = this._strToFormula(this.settingConfig.formula)
       if (formula.length === 0) return
@@ -1149,12 +1112,12 @@ export default {
         fn()
       }
     },
-    pieceStyle (deviation) { // 每个块的样式
+    pieceStyle(deviation) { // 每个块的样式
       const companyLength = this.configInformation.companyLength
       const str = deviation[0] * companyLength + 'px,' + deviation[1] * companyLength + 'px,' + deviation[2] * companyLength + 'px'
       return `transform: translate3d(${str}); transition: 0.2s;`
     },
-    style (display, color, i) { // 每个面的样式
+    style(display, color, i) { // 每个面的样式
       const transform = `transform: ${angleMap[i]} translateZ(50px);`
       const pageColor = this.configInformation.pageColor
       const backgroundColor = `background: ${display ? pageColor[color] : 'transparent'};`
@@ -1163,20 +1126,20 @@ export default {
       const border = this.settingConfig.hideBorder ? '' : `border: 1px solid ${display ? pageColor.border : 'transparent'};`
       return transform + backgroundColor + opacity + border
     },
-    handleClose () { // 关闭提示
+    handleClose() { // 关闭提示
       this.settingConfig.dialogVisible = false
     },
-    permanentCloseTip () { // 永久关闭提示
+    permanentCloseTip() { // 永久关闭提示
       localStorage.setItem('closeTip', 1)
       this.settingConfig.dialogVisible = false
       this.settingConfig.permanentClose = true
     },
     pasteTextToClipboard // 将传入的文本复制到剪贴板
   },
-  created () {
+  created() {
     this._mouseMove = throttle(this._mouseMove, 50)
   },
-  mounted () {
+  mounted() {
     addEventListener('keyup', e => this._keyUpEvent(e))
     addEventListener('keydown', e => this._keyDownEvent(e))
     addEventListener('mouseup', () => { // 鼠标弹起时触发
@@ -1198,20 +1161,26 @@ export default {
 .container {
   position: relative;
 }
+
 .bg {
   position: fixed;
   width: 100%;
   height: 100%;
-  background: #134E5E;  /* fallback for old browsers */
-  background: -webkit-linear-gradient(to right, #71B280, #134E5E);  /* Chrome 10-25, Safari 5.1-6 */
-  background: linear-gradient(to right, #71B280, #134E5E); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+  background: #134E5E;
+  /* fallback for old browsers */
+  background: -webkit-linear-gradient(to right, #71B280, #134E5E);
+  /* Chrome 10-25, Safari 5.1-6 */
+  background: linear-gradient(to right, #71B280, #134E5E);
+  /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
 }
+
 .box {
   position: fixed;
   top: 50%;
   left: 50%;
   transform-style: preserve-3d;
 }
+
 .tips {
   position: absolute;
   top: -0;
@@ -1220,26 +1189,31 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+
   img {
     width: 100px;
     height: 100px;
     opacity: 0;
     transition: all .4s;
   }
+
   &:hover img {
     opacity: .3;
   }
 }
+
 /* 魔方主体 */
 .subject-one,
 .subject-two {
   position: absolute;
   transform-style: preserve-3d;
+
   .diamond {
     transform-style: preserve-3d;
     position: absolute;
     width: 100px;
     height: 100px;
+
     &>div {
       position: absolute;
       width: 100px;
@@ -1248,18 +1222,22 @@ export default {
     }
   }
 }
+
 /* 菜单 */
 .menu {
   width: 400px;
   position: absolute;
   box-shadow: 0 0 10px 5px rgba(0, 0, 0, .2);
+
   .head {
     border-bottom: 1px solid white;
+
     &>ul {
       display: flex;
       flex-direction: row;
       align-items: center;
       justify-content: flex-start;
+
       &>li {
         height: 40px;
         padding: 0 10px;
@@ -1267,19 +1245,23 @@ export default {
         text-align: center;
         line-height: 40px;
         transition: all .2s;
+
         &:not(.move-control:hover):hover {
           background-color: rgba(255, 255, 255, .3);
         }
       }
     }
   }
+
   .body {
     padding: 10px;
+
     &>ul {
       display: flex;
       flex-flow: row wrap;
       align-items: center;
       justify-content: space-around;
+
       &>li {
         display: flex;
         flex-direction: column;
@@ -1290,9 +1272,11 @@ export default {
         margin: 10px 0 0 0;
         font-size: 12px;
         transition: all .2s;
+
         &:hover {
           background-color: rgba(255, 255, 255, .5);
         }
+
         &>img {
           display: block;
           width: 70%;
@@ -1300,20 +1284,24 @@ export default {
           margin: auto;
         }
       }
+
       .cancel {
         font-size: 20px;
         justify-content: space-evenly;
       }
     }
   }
+
   .footer {
     padding: 10px;
     border-top: 1px solid white;
+
     .control {
       display: flex;
       flex-flow: row wrap;
       align-items: center;
       justify-content: space-around;
+
       &>div {
         width: 60px;
         height: 30px;
@@ -1323,19 +1311,23 @@ export default {
         line-height: 30px;
         transition: all .2s;
         background: #40b6b7;
+
         &:hover {
           background-color: rgba(255, 255, 255, .5);
         }
       }
     }
+
     .formula {
       word-wrap: break-word;
+
       &:hover {
         background-color: rgba(0, 0, 0, .1);
       }
     }
   }
 }
+
 /* 设置 */
 .setting {
   .head {
@@ -1346,10 +1338,12 @@ export default {
     text-align: center;
     margin-bottom: 20px;
   }
+
   .body {
     display: flex;
     flex-flow: column nowrap;
     gap: 5px;
+
     &>div {
       &:not(.collapse) {
         display: flex;
@@ -1357,20 +1351,24 @@ export default {
         align-items: center;
         gap: 10px;
       }
+
       &>span {
         display: block;
         width: 100px;
         text-align: right;
         font-size: 16px;
       }
+
       &.formula {
         .text {
           width: 110px;
         }
+
         .count {
           width: 41px;
         }
       }
+
       &.spacing {
         .slider {
           margin-left: 10px;
@@ -1385,23 +1383,28 @@ export default {
       justify-content: center;
       align-items: center;
       gap: 20px;
+
       &>li {
         display: flex;
         flex-flow: column nowrap;
         align-items: center;
       }
     }
+
     .transparency ul {
       display: flex;
       flex-flow: column nowrap;
+
       &>li {
         display: flex;
         flex-flow: row nowrap;
         gap: 12px;
         line-height: 38px;
+
         &>span {
           width: 48px;
         }
+
         &>div {
           width: 250px;
         }
@@ -1409,22 +1412,26 @@ export default {
     }
   }
 }
+
 .error {
   .head {
     height: 40px;
     line-height: 40px;
     text-align: center;
   }
+
   .body {
     display: flex;
     flex-flow: column nowrap;
     justify-content: center;
     gap: 10px;
     align-items: flex-start;
+
     .formula-str {
       width: 100%;
       word-wrap: break-word;
     }
+
     .rewrite {
       display: flex;
       flex-flow: row nowrap;
@@ -1434,9 +1441,11 @@ export default {
     }
   }
 }
+
 .collapse {
   border: none;
 }
+
 :deep(.el-collapse-item__header),
 :deep(.el-collapse-item__wrap) {
   background-color: transparent;

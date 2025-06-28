@@ -1,5 +1,6 @@
 <template>
-  <div class="menu" ref="box" :style="`top: ${initialTop + menuMoveConfig.y}px; left: ${initialLeft + menuMoveConfig.x}px;`+  basicStyle">
+  <div class="menu" ref="box"
+    :style="`top: ${initialTop + menuMoveConfig.y}px; left: ${initialLeft + menuMoveConfig.x}px;` + basicStyle">
     <slot></slot>
   </div>
 </template>
@@ -7,8 +8,8 @@
 <script>
 export default {
   name: 'DragMenu',
-  props: [ 'width', 'bgcColor', 'top', 'left' ],
-  data () {
+  props: ['width', 'bgcColor', 'top', 'left'],
+  data() {
     return {
       initialTop: this.top ? Number(this.top) : 150,
       initialLeft: this.left ? Number(this.left) : 100,
@@ -38,9 +39,9 @@ export default {
       }
       return styleStr
     }
-},
+  },
   methods: {
-    mouseDrag (e) {
+    mouseDrag(e) {
       const config = this.menuMoveConfig
       if (!config.move) return
       const tmpX = config.moveX + e.pageX - config.downX
@@ -58,7 +59,7 @@ export default {
     //   )
     // }
   },
-  mounted () {
+  mounted() {
     const dragDom = this.$refs['box'].querySelector('#drag')
     // console.log(dragDom)
     // console.log(dragDom.getBoundingClientRect())
@@ -87,6 +88,7 @@ export default {
   position: absolute;
   z-index: 999;
   box-shadow: 0 0 10px 5px rgba(0, 0, 0, .2);
+
   #drag {
     cursor: grab;
   }

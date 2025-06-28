@@ -4,13 +4,13 @@
  * @param {string} layer 要操作的层
  * @param {number} deg 当前旋转的角度
  */
-export default function colorExchange (data, layer, deg) { // 旋转后的颜色变换函数
+export default function colorExchange(data, layer, deg) { // 旋转后的颜色变换函数
   let a, b, c, d, e, A, B, C, D, E // 中转变量
   // 通过最low的方式去实现的颜色变换(手动去调换每一个面的颜色) 暂时没找到合适的方法去简化代码
   // 外层switch区分层 内层区分旋转角度 旋转方向从上往下依次为：顺时针，逆时针，顺时针
-  switch(layer) {
+  switch (layer) {
     case 'u':
-      switch(deg) {
+      switch (deg) {
         case -90:
           a = data[0].color[0]
           b = data[0].color[1]
@@ -32,7 +32,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           data[2].color[4] = b
           data[2].color[3] = c
 
-          d = data[1].color[0] 
+          d = data[1].color[0]
           e = data[1].color[4]
 
           data[1].color[0] = data[7].color[0]
@@ -68,7 +68,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           data[6].color[5] = b
           data[6].color[1] = c
 
-          d = data[1].color[0] 
+          d = data[1].color[0]
           e = data[1].color[4]
 
           data[1].color[0] = data[3].color[0]
@@ -129,7 +129,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
       }
       break
     case 'd':
-      switch(deg) {
+      switch (deg) {
         case -90:
           a = data[22].color[2]
           b = data[22].color[3]
@@ -151,7 +151,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           data[24].color[5] = b
           data[24].color[1] = c
 
-          d = data[21].color[2] 
+          d = data[21].color[2]
           e = data[21].color[3]
 
           data[21].color[2] = data[19].color[2]
@@ -187,7 +187,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           data[20].color[4] = b
           data[20].color[3] = c
 
-          d = data[21].color[2] 
+          d = data[21].color[2]
           e = data[21].color[3]
 
           data[21].color[2] = data[23].color[2]
@@ -212,7 +212,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           data[22].color[5] = data[18].color[4]
 
           data[18].color[2] = a
-          data[18].color[1] = b 
+          data[18].color[1] = b
           data[18].color[4] = c
 
           A = data[20].color[2]
@@ -227,7 +227,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           data[24].color[5] = B
           data[24].color[1] = C
 
-          d = data[21].color[2] 
+          d = data[21].color[2]
           e = data[21].color[3]
 
           data[21].color[2] = data[25].color[2]
@@ -248,7 +248,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
       }
       break
     case 'r':
-      switch(deg) {
+      switch (deg) {
         case 90:
           a = data[0].color[0]
           b = data[0].color[1]
@@ -346,7 +346,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           data[6].color[1] = B
           data[6].color[0] = C
 
-          d = data[7].color[0] 
+          d = data[7].color[0]
           e = data[7].color[1]
 
           data[7].color[0] = data[25].color[2]
@@ -367,7 +367,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
       }
       break
     case 'l':
-      switch(deg) {
+      switch (deg) {
         case 90:
           a = data[22].color[2]
           b = data[22].color[3]
@@ -425,7 +425,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           data[4].color[3] = b
           data[4].color[0] = c
 
-          d = data[21].color[2] 
+          d = data[21].color[2]
           e = data[21].color[3]
 
           data[21].color[2] = data[11].color[4]
@@ -465,7 +465,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           data[20].color[3] = B
           data[20].color[2] = C
 
-          d = data[21].color[2] 
+          d = data[21].color[2]
           e = data[21].color[3]
 
           data[21].color[2] = data[3].color[0]
@@ -477,8 +477,8 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           D = data[13].color[5]
           E = data[13].color[3]
 
-          data[13].color[5]  = data[11].color[4]
-          data[13].color[3]  = data[11].color[3]
+          data[13].color[5] = data[11].color[4]
+          data[13].color[3] = data[11].color[3]
 
           data[11].color[4] = D
           data[11].color[3] = E
@@ -486,7 +486,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
       }
       break
     case 'f':
-      switch(deg) {
+      switch (deg) {
         case 90:
           a = data[0].color[0]
           b = data[0].color[1]
@@ -605,7 +605,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
       }
       break
     case 'b':
-      switch(deg) {
+      switch (deg) {
         case 90:
           a = data[22].color[2]
           b = data[22].color[3]
@@ -627,7 +627,7 @@ export default function colorExchange (data, layer, deg) { // 旋转后的颜色
           data[4].color[0] = b
           data[4].color[5] = c
 
-          d = data[13].color[3] 
+          d = data[13].color[3]
           e = data[13].color[5]
 
           data[13].color[3] = data[23].color[2]

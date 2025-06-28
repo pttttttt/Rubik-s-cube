@@ -44,12 +44,12 @@ const relativePosition = {
  * @param {array} formula 魔方公式
  * @returns 生成的所有公式
  */
-function autoGenerateFormula (formula) {
+function autoGenerateFormula(formula) {
   const result = { r: false, l: false, f: false, b: false, u: false, d: false }
   for (const key in relativePosition) {
     result[key] = formula.map(([layer, deg]) => relativePosition[layer] ? newFormula(layer, deg, key) : [layer, deg])
   }
-  function newFormula (layer, deg, key) {
+  function newFormula(layer, deg, key) {
     let newKey = relativePosition[key][layer]
     newKey += deg === 90 ? '' : deg === -90 ? '1' : '2'
     return operation[newKey]

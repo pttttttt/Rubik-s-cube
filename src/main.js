@@ -17,9 +17,9 @@ Vue.component(Message.name, Message)
 Vue.prototype.$message = Message;
 
 new Vue({
-    el: '#app',
-    render: h => h(App),
-    beforeCreate() {
-        Vue.prototype.$bus = this
-    }
+  el: '#app',
+  render: h => h(App),
+  beforeCreate() {
+    Vue.prototype.$bus = this
+  }
 })

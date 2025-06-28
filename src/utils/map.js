@@ -11,6 +11,12 @@ export const degToSuffixMap = { '90': '', '-90': '1', '-180': '2', '180': '2' }
 export const layerToAxisMap = { r: ['x', 1], l: ['x', -1], u: ['y', -1], d: ['y', 1], f: ['z', 1], b: ['z', -1] }
 
 /**
+ * 正方体六个面旋转角度映射
+ * 顺序 上 右 下 左 前 后
+ */
+export const angleMap = ['rotateX(90deg)', 'rotateY(90deg)', 'rotateX(-90deg)', 'rotateY(-90deg)', '', 'rotateY(-180deg)']
+
+/**
  * 按键弹起事件映射
  */
 export const keyUpEventMap = {

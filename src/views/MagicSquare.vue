@@ -22,17 +22,15 @@
       <div id="cube" class="subject-one" :style="getWholeSize + revolve" @transitionend="transitionEndHandler">
         <div
           class="diamond"
-          v-for="data in data"
+          v-for="(data, i) in data"
           :key="data.id"
           :style="pieceStyle(data.deviation)"
           >
-          <template v-for="angle in data.angle">
+          <template v-for="(color, j) in dynamicData[i].color">
             <div
-              v-if="!(settingConfig.hideInside && angle.color === 'hide')"
-              @click="angle.color = 'hide'"
-              :key="angle.id"
-              :title="`${data.id}-${angle.id} ${data.original}`"
-              :style="style(data, angle)"
+              v-if="!(settingConfig.hideInside && color === 'hide')"
+              :key="j"
+              :style="style(dynamicData[i].display, color, j)"
               ></div>
           </template>
         </div>
@@ -41,19 +39,16 @@
       <div class="subject-two" :style="getWholeSize">
         <div
           class="diamond"
-          v-for="data in datas"
+          v-for="(data, i) in datas"
           :key="data.id"
           :style="pieceStyle(data.deviation)"
           >
-          <template v-for="angle in data.angle">
+          <template v-for="(color, j) in dynamicDatas[i].color">
             <div
-              v-if="!(settingConfig.hideInside && angle.color === 'hide')"
-              @click="angle.color = 'hide'"
-              :key="angle.id"
-              :title="`${data.id}-${angle.id} ${data.original}`"
-              :style="style(data, angle)"
+              v-if="!(settingConfig.hideInside && color === 'hide')"
+              :key="j"
+              :style="style(dynamicDatas[i].display, color, j)"
               ></div>
-              <!-- >{{ `${data.id}-${angle.id} ${data.original}` }}</div> -->
           </template>
         </div>
       </div>
@@ -215,7 +210,7 @@
 
 <script>
 import { deepCopy, throttle, pasteTextToClipboard } from '../utils/util.js'
-import { degToSuffixMap, layerToAxisMap, keyUpEventMap, keyDownEventMap } from '../utils/map.js'
+import { degToSuffixMap, layerToAxisMap, keyUpEventMap, keyDownEventMap, angleMap } from '../utils/map.js'
 import { operation, formula, otherFormula, formulaButton, otherFormulaButton } from '../utils/formula.js'
 import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
 import colorExchange from '../utils/colorExchange.js'
@@ -231,125 +226,63 @@ export default {
     * center为魔方内部的中心块
     * 该位置是以魔方的白色面朝下，蓝色面朝前定义 脱离此前提无实际意义
     */
-    let basicPositioInfo = [
+    const basicPositioInfo = [
       'urf', 'uf', 'ulf', 'ul', 'ulb', 'ub', 'urb', 'ur', 'u',
       'rf', 'f', 'lf', 'l', 'lb', 'b', 'br', 'r', 'center',
       'drf', 'df', 'dlf', 'dl', 'dlb', 'db', 'drb', 'dr', 'd'
     ]
-    let allColor = [] // 初始魔方的所有块每个面的颜色 复原时使用
-    const data = _optimizationDataHandler(basicPositioInfo)
+    const allColor = [] // 初始魔方的所有块每个面的颜色 复原时使用
+    const map = {
+      u: {cI: 0,axis: 1,num: 0},
+      r: {cI: 1,axis: 0,num: 2},
+      d: {cI: 2,axis: 1,num: 2},
+      l: {cI: 3,axis: 0,num: 0},
+      f: {cI: 4,axis: 2,num: 1},
+      b: {cI: 5,axis: 2,num: -1},
+    }
+    const data = _optimizationDataHandler()
     const datas = deepCopy(data)
-    function _optimizationDataHandler(arr) { // 基于魔方基础位置信息做进一步处理 方便后续控制dom元素
-      const tmpData = []
-      let color, x, y, z, layer, rgba = 'hide'
-      arr.forEach((v, i) => {
-        x = 1 // 记录当前块的偏移量
-        y = 1
-        z = 0
-        color = {top: rgba, down: rgba, right: rgba, left: rgba, front: rgba, after: rgba} // 当前块每个面的颜色
-        layer = {u: false, d: false, r: false, l: false, f: false, b: false} // 当前块的位置 用布尔值代替字符串方便后续操作
-        let td = true, rl = true, fb = true // 用于判断当前代码块在当前循环体是否已被执行过
-        for (let j = 0; j < 3; j++) { // 遍历字符串 v
-          if (td) { // 当前代码块执行一次后在本循环体就不再执行
-            if (v[j] === 'u') {
-              y = 0
-              color.top = 'u' // u
-              layer.u = true
-              td = false
-              continue
-            } else if (v[j] === 'd') {
-              y = 2
-              color.down = 'd' // d
-              layer.d = true
-              td = false
-              continue
-            } else {
-              y = 1
-            }
-          }
-          if (rl) {
-            if (v[j] === 'r') {
-              x = 2
-              color.right = 'r' // r
-              color.left = rgba
-              layer.r = true
-              rl = false
-              continue
-            } else if (v[j] === 'l') {
-              x = 0
-              color.left = 'l' // l
-              layer.l = true
-              rl = false
-              continue
-            } else {
-              x = 1
-            }
-          }
-          if (fb) {
-            if (v[j] === 'f') {
-              z = 1
-              color.front = 'f' // f
-              layer.f = true
-              fb = false
-              continue
-            } else if (v[j] === 'b') {
-              z = -1
-              color.after = 'b' // b
-              layer.b = true
-              fb = false
-              continue
-            } else {
-              z = 0
-            }
-          }
+    function _optimizationDataHandler() { // 基于魔方基础位置信息做进一步处理 方便后续控制dom元素
+      const staticData = []
+      const dynamicData = []
+      basicPositioInfo.forEach((positioStr, index) => {
+        const deviation = [1,1,0]
+        const color = Array(6).fill('hide')
+        const layer = {u: false, d: false, r: false, l: false, f: false, b: false} // 当前块的位置 用布尔值代替字符串方便后续操作
+        for (let i = 0; i < 3; i++) { // 遍历字符串 v
+          const str = positioStr[i]
+          if (!map[str]) continue // 排除 center 块
+          const { axis, num, cI } = map[str]
+          deviation[axis] = num
+          color[cI] = str
+          layer[str] = true
         }
-        tmpData[i] = { // 单个块的配置信息
-          // deviation: judge ? `${companyLength}px, ${companyLength}px, 0` : `${x}px, ${y}px, ${z}px`, // 偏移量
-          deviation: [x, y, z],
+        staticData[index] = { // 单个块的配置信息
+          deviation, // 当前块距中心偏移量
           layer, // 位置信息 （布尔值）
-          display: true, // 是否显示 （在魔方旋转时使用）
-          id: i, // 当前块在整个魔方体数组的下标
-          original: v, // 原始位置信息 （自动还原时使用）
-          angle: [{ // 当前块每个面的配置信息 按 上右下左前后 排列
-            deg: 'rotateX(90deg)', // 旋转角度
-            id: 0, // key
-            color: color.top // 颜色
-          }, {
-            deg: 'rotateY(90deg)',
-            id: 1,
-            color: color.right
-          }, {
-            deg: 'rotateX(-90deg)',
-            id: 2,
-            color: color.down
-          }, {
-            deg: 'rotateY(-90deg)',
-            id: 3,
-            color: color.left
-          }, {
-            deg: '',
-            id: 4,
-            color: color.front
-          }, {
-            deg: 'rotateY(-180deg)',
-            id: 5,
-            color: color.after
-          }]
+          id: index, // 当前块在整个魔方体数组的下标
+          original: positioStr, // 原始位置信息 （自动还原时使用）
         }
-        allColor[i] = [color.top, color.right, color.down, color.left, color.front, color.after] // 存储初始颜色
+        dynamicData[index] = {
+          display: true, // 是否显示 （在魔方旋转时使用）
+          color
+        }
+        allColor[index] = color
       })
-      return tmpData
+      return [staticData, dynamicData]
     }
     return {
-      data,
-      datas,
-      tips,
+      data: Object.freeze(data[0]), // 只读
+      datas: Object.freeze(datas[0]),
+      dynamicData: data[1], // 动态数据
+      dynamicDatas: datas[1],
+      tips: Object.freeze(tips),
       allColor: Object.freeze(allColor),
       operation: Object.freeze(operation), // 魔方所有操作方法
       formula: Object.freeze(formula), // 魔方公式
       formulaButton, // 魔方公式所对应的按钮
       otherFormula: Object.freeze(otherFormula), // 其他魔方公式
-      otherFormulaButton,
+      otherFormulaButton, // 其他魔法公式配置按钮
       selectedFormula: false, // 当前是否选中公式
       isImplementFormula: false, // 当前是否正在执行公式
       isAutoRecovery: false, // 是否正在自动复原
@@ -447,8 +380,8 @@ export default {
         deg *= layerToAxisMap[layer][1]
         this.intercept = false // 开启节流阀
         if (time === 0) { // 为了节省性能 当旋转时间为0时直接切换色块颜色
-          colorExchange(this.data, layer, deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
-          this.isAutoRecoveryFormula || colorExchange(this.datas, layer, deg) // 生成公式时不对复制体进行颜色变换
+          colorExchange(this.dynamicData, layer, deg) // 根据点击的面以及方式对两个魔方体的颜色进行变换
+          this.isAutoRecoveryFormula || colorExchange(this.dynamicDatas, layer, deg) // 生成公式时不对复制体进行颜色变换
           this.intercept = true // 关闭节流阀
           resolve(tmpFormula)
           return
@@ -465,8 +398,8 @@ export default {
     transitionEndHandler (e) { // 监听旋转过渡样式结束
       if (e.propertyName !== 'transform') return
       if (e.target.id !== 'cube') return
-      colorExchange(this.data, this.layer, this.deg) // 根据点击的面以及方式对两个魔方的颜色进行变换
-      colorExchange(this.datas, this.layer, this.deg)
+      colorExchange(this.dynamicData, this.layer, this.deg) // 根据点击的面以及方式对两个魔方的颜色进行变换
+      colorExchange(this.dynamicDatas, this.layer, this.deg)
       this.revolve = '' // 清除过渡和3d旋转的样式 这样就可以在肉眼看不出来的情况下把本体复原到原本的旋转角度
       this._displaySwitch(true, this.layer) // 恢复旋转之前被隐藏的层
       this.rotateOrNot = false
@@ -568,7 +501,7 @@ export default {
       })
     },
     _displaySwitch (boolean, layer) { // 旋转时控制魔方显示部分
-      this.data.forEach((v, i) => v.layer[layer] ? this.datas[i].display = boolean : v.display = boolean)
+      this.data.forEach((v, i) => v.layer[layer] ? this.dynamicDatas[i].display = boolean : this.dynamicData[i].display = boolean)
     },
     _restore () { // 通过重置各个色块颜色复原
       for (let i = 0, n = this.data.length; i < n; i++) {
@@ -580,7 +513,7 @@ export default {
         }
       }
     },
-    _autoRecovery (data = this.data) { // 以层先法逻辑自动生成公式并复原
+    _autoRecovery (data = this.data, dynamicData = this.dynamicData) { // 以层先法逻辑自动生成公式并复原
       const that = this
       that.isAutoRecovery = true
       that.startRecordHandler()
@@ -598,18 +531,19 @@ export default {
       function bottomCrossOne (res) { // 从底层和中间层的棱块中寻找有白色面的块
         let formula = [] // 需执行的公式
         if (!positionError([19, 21, 23, 25])) {
-          if (data[19].angle[2].color !== 'd') formula.push(...allFormula.a['f'])
-          if (data[21].angle[2].color !== 'd') formula.push(...allFormula.a['l'])
-          if (data[23].angle[2].color !== 'd') formula.push(...allFormula.a['b'])
-          if (data[25].angle[2].color !== 'd') formula.push(...allFormula.a['r'])
+          if (dynamicData[19].color[2] !== 'd') formula.push(...allFormula.a['f'])
+          if (dynamicData[21].color[2] !== 'd') formula.push(...allFormula.a['l'])
+          if (dynamicData[23].color[2] !== 'd') formula.push(...allFormula.a['b'])
+          if (dynamicData[25].color[2] !== 'd') formula.push(...allFormula.a['r'])
           that._recursion(formula).then(() => res())
           return
         }
         for (let i = 0; i < subscript.bottomAndCenterEdge.length; i++) { // 遍历出所需棱块的下标
           if (formula.length !== 0) break // 如在之前的循环中已找到目标块，则退出循环
           let item = data[subscript.bottomAndCenterEdge[i]]
-          for (let j = 0; j < item.angle.length; j++) { // 遍历每一个块的6个面
-            const tmpColor = item.angle[j].color // 当前面的颜色所映射的字符
+          const colorItem = dynamicData[subscript.bottomAndCenterEdge[i]]
+          for (let j = 0; j < colorItem.color.length; j++) { // 遍历每一个块的6个面
+            const tmpColor = colorItem.color[j] // 当前面的颜色所映射的字符
             if (tmpColor !== 'd') continue // 不是底部颜色（默认白色） 退出循环
             let str = item.original // 当前块的位置信息
             if (/f/.test(str)) {
@@ -657,7 +591,7 @@ export default {
         }
         function judge (index) {
           for (let i = 0; i < 6; i++) {
-            let tmpColor = data[index].angle[i].color
+            let tmpColor = dynamicData[index].color[i]
             if (tmpColor === 'd') {
               return false
             }
@@ -681,11 +615,12 @@ export default {
         for (let i = 0; i < subscript.topEdge.length; i++) {
           if (formula.length !== 0) break
           const item = data[subscript.topEdge[i]]
+          const colorItem = dynamicData[subscript.topEdge[i]]
           let judge = false
           let tmpColor = ''
           let color = ''
-          for (let j = 0; j < item.angle.length; j++) {
-            tmpColor = item.angle[j].color
+          for (let j = 0; j < colorItem.color.length; j++) {
+            tmpColor = colorItem.color[j]
             if (tmpColor === 'd') judge = true
             if (tmpColor !== 'hide' && tmpColor !== 'd') {
               color = tmpColor
@@ -695,16 +630,16 @@ export default {
           if (!judge) continue
           switch (color) {
             case 'f':
-              formula.push(...topRotate(item.id - 1), ...judgeInvert(item, color))
+              formula.push(...topRotate(item.id - 1), ...judgeInvert(colorItem, color))
               break
             case 'r':
-              formula.push(...topRotate(item.id - 7), ...judgeInvert(item, color))
+              formula.push(...topRotate(item.id - 7), ...judgeInvert(colorItem, color))
               break
             case 'b':
-              formula.push(...topRotate(item.id - 5), ...judgeInvert(item, color))
+              formula.push(...topRotate(item.id - 5), ...judgeInvert(colorItem, color))
               break
             case 'l':
-              formula.push(...topRotate(item.id - 3), ...judgeInvert(item, color))
+              formula.push(...topRotate(item.id - 3), ...judgeInvert(colorItem, color))
               break
             default:
               break
@@ -734,7 +669,7 @@ export default {
         }
       }
       function judgeInvert (item, layer) {
-        if (item.angle[0].color !== 'd') {
+        if (item.color[0] !== 'd') {
           return allFormula.a[layer]
         }
         return [that.operation[layer + '2']]
@@ -746,10 +681,11 @@ export default {
         for (let i = 0; i < subscript.topCorner.length; i++) {
           if (formula.length !== 0) break
           const item = data[subscript.topCorner[i]]
+          const colorItem = dynamicData[subscript.topCorner[i]]
           let judge = false
           let color = []
-          for (let j = 0; j < item.angle.length; j++) {
-            const tmpColor = item.angle[j].color
+          for (let j = 0; j < colorItem.color.length; j++) {
+            const tmpColor = colorItem.color[j]
             if (tmpColor === 'd') judge = true
             if (tmpColor !== 'hide' && tmpColor !== 'd') {
               color.push(tmpColor)
@@ -792,10 +728,10 @@ export default {
       // 底层角块 复原
       function bottomCorner (res) {
         const formula = []
-        if (data[18].angle[2].color !== 'd') formula.push(...allFormula.c['f'])
-        if (data[20].angle[2].color !== 'd') formula.push(...allFormula.c['l'])
-        if (data[22].angle[2].color !== 'd') formula.push(...allFormula.c['b'])
-        if (data[24].angle[2].color !== 'd') formula.push(...allFormula.c['r'])
+        if (dynamicData[18].color[2] !== 'd') formula.push(...allFormula.c['f'])
+        if (dynamicData[20].color[2] !== 'd') formula.push(...allFormula.c['l'])
+        if (dynamicData[22].color[2] !== 'd') formula.push(...allFormula.c['b'])
+        if (dynamicData[24].color[2] !== 'd') formula.push(...allFormula.c['r'])
         if (formula.length === 0) return res()
         that._recursion(formula, false).then(() => bottomCorner(res))
       }
@@ -806,10 +742,11 @@ export default {
         for (let i = 0; i < subscript.topEdge.length; i++) {
           if (formula.length !== 0) break
           const item = data[subscript.topEdge[i]]
+          const colorItem = dynamicData[subscript.topEdge[i]]
           let judge = true
           let colorArr = []
-          for (let j = 0; j < item.angle.length; j++) {
-            const tmpColor = item.angle[j].color
+          for (let j = 0; j < colorItem.color.length; j++) {
+            const tmpColor = colorItem.color[j]
             if (tmpColor === 'u') {
               judge = false
               break
@@ -853,10 +790,10 @@ export default {
       // 中间层棱块 复原
       function center (res) {
         const formula = []
-        if (data[9].angle[4].color !== 'f') formula.push(...allFormula.centerLayerFlip['f'])
-        if (data[11].angle[4].color !== 'f') formula.push(...allFormula.centerLayerFlip['l'])
-        if (data[13].angle[5].color !== 'b') formula.push(...allFormula.centerLayerFlip['b'])
-        if (data[15].angle[5].color !== 'b') formula.push(...allFormula.centerLayerFlip['r'])
+        if (dynamicData[9].color[4] !== 'f') formula.push(...allFormula.centerLayerFlip['f'])
+        if (dynamicData[11].color[4] !== 'f') formula.push(...allFormula.centerLayerFlip['l'])
+        if (dynamicData[13].color[5] !== 'b') formula.push(...allFormula.centerLayerFlip['b'])
+        if (dynamicData[15].color[5] !== 'b') formula.push(...allFormula.centerLayerFlip['r'])
         if (formula.length === 0) return res()
         that._recursion(formula, false).then(() => res())
       }
@@ -864,11 +801,12 @@ export default {
       function positionError (arr) { // 判断块是否在自己原本的位置
         for (let i = 0; i < arr.length; i++) {
           const item = data[arr[i]]
+          const colorItem = dynamicData[arr[i]]
           const correctPosition = item.original.split('')
           const currentPosition = []
-          for (let j = 0; j < item.angle.length; j++) {
+          for (let j = 0; j < colorItem.color.length; j++) {
             if (currentPosition.length >= 3) break
-            const tmpColor = item.angle[j].color
+            const tmpColor = colorItem.color[j]
             if (tmpColor !== 'hide') {
               currentPosition.push(tmpColor)
             }
@@ -885,10 +823,10 @@ export default {
       function topCrossPosition (res) {
         const formula = []
         let counter = []
-        if (data[1].angle[0].color === 'u') counter.push(1)
-        if (data[3].angle[0].color === 'u') counter.push(3)
-        if (data[5].angle[0].color === 'u') counter.push(5)
-        if (data[7].angle[0].color === 'u') counter.push(7)
+        if (dynamicData[1].color[0] === 'u') counter.push(1)
+        if (dynamicData[3].color[0] === 'u') counter.push(3)
+        if (dynamicData[5].color[0] === 'u') counter.push(5)
+        if (dynamicData[7].color[0] === 'u') counter.push(7)
         let sum = 0
         switch (counter.length) {
           case 4:
@@ -927,17 +865,17 @@ export default {
       function topSurface (res) {
         const formula = []
         const counter = []
-        if (data[0].angle[0].color !== 'u') {
-          counter.push({id: 0, clockwise: data[0].angle[1].color === 'u'})
+        if (dynamicData[0].color[0] !== 'u') {
+          counter.push({id: 0, clockwise: dynamicData[0].color[1] === 'u'})
         }
-        if (data[2].angle[0].color !== 'u') {
-          counter.push({id: 2, clockwise: data[2].angle[4].color === 'u'})
+        if (dynamicData[2].color[0] !== 'u') {
+          counter.push({id: 2, clockwise: dynamicData[2].color[4] === 'u'})
         }
-        if (data[4].angle[0].color !== 'u') {
-          counter.push({id: 4, clockwise: data[4].angle[3].color === 'u'})
+        if (dynamicData[4].color[0] !== 'u') {
+          counter.push({id: 4, clockwise: dynamicData[4].color[3] === 'u'})
         }
-        if (data[6].angle[0].color !== 'u') {
-          counter.push({id: 6, clockwise: data[6].angle[5].color === 'u'})
+        if (dynamicData[6].color[0] !== 'u') {
+          counter.push({id: 6, clockwise: dynamicData[6].color[5] === 'u'})
         }
         let sum
         switch (counter.length) {
@@ -961,9 +899,9 @@ export default {
             }
             break
           case 4:
-            if (data[0].angle[4].color === 'u' && data[2].angle[4].color === 'u') formula.push(...allFormula.topLayerFishOne['f'])
-            else if (data[2].angle[3].color === 'u' && data[4].angle[3].color === 'u') formula.push(...allFormula.topLayerFishOne['l'])
-            else if (data[4].angle[5].color === 'u' && data[6].angle[5].color === 'u') formula.push(...allFormula.topLayerFishOne['b'])
+            if (dynamicData[0].color[4] === 'u' && dynamicData[2].color[4] === 'u') formula.push(...allFormula.topLayerFishOne['f'])
+            else if (dynamicData[2].color[3] === 'u' && dynamicData[4].color[3] === 'u') formula.push(...allFormula.topLayerFishOne['l'])
+            else if (dynamicData[4].color[5] === 'u' && dynamicData[6].color[5] === 'u') formula.push(...allFormula.topLayerFishOne['b'])
             else formula.push(...allFormula.topLayerFishOne['r'])
             break
           case 3:
@@ -977,15 +915,15 @@ export default {
       function topCorner (res) {
         const formula = []
         const counter = []
-        if (data[0].angle[4].color === data[2].angle[4].color) counter.push('f')
-        if (data[2].angle[3].color === data[4].angle[3].color) counter.push('l')
-        if (data[4].angle[5].color === data[6].angle[5].color) counter.push('b')
-        if (data[6].angle[1].color === data[0].angle[1].color) counter.push('r')
+        if (dynamicData[0].color[4] === dynamicData[2].color[4]) counter.push('f')
+        if (dynamicData[2].color[3] === dynamicData[4].color[3]) counter.push('l')
+        if (dynamicData[4].color[5] === dynamicData[6].color[5]) counter.push('b')
+        if (dynamicData[6].color[1] === dynamicData[0].color[1]) counter.push('r')
         if (counter.length === 0) formula.push(...allFormula.topLayerCornerBlock['f'])
         else if (counter.length === 1) formula.push(...allFormula.topLayerCornerBlock[counter[0]])
         else {
           let tmpStep = []
-          switch (data[0].angle[4].color) {
+          switch (dynamicData[0].color[4]) {
             case 'l':
               tmpStep = u
               break
@@ -1006,10 +944,10 @@ export default {
       function topEdgePosition (res) {
         const formula = []
         const color = [
-          data[1].angle[4].color,
-          data[3].angle[3].color,
-          data[5].angle[5].color,
-          data[7].angle[1].color
+          dynamicData[1].color[4],
+          dynamicData[3].color[3],
+          dynamicData[5].color[5],
+          dynamicData[7].color[1]
         ]
         const position = ['f', 'l', 'b', 'r']
         const counter = []
@@ -1216,13 +1154,13 @@ export default {
       const str = deviation[0] * companyLength + 'px,' + deviation[1] * companyLength + 'px,' + deviation[2] * companyLength + 'px'
       return `transform: translate3d(${str}); transition: 0.2s;`
     },
-    style (data, angle) { // 每个面的样式
-      const transform = `transform: ${angle.deg} translateZ(50px);`
+    style (display, color, i) { // 每个面的样式
+      const transform = `transform: ${angleMap[i]} translateZ(50px);`
       const pageColor = this.configInformation.pageColor
-      const backgroundColor = `background: ${data.display ? pageColor[angle.color] : 'transparent'};`
+      const backgroundColor = `background: ${display ? pageColor[color] : 'transparent'};`
       const key = this.rotateOrNot ? 'Overlap' : ''
-      const opacity = this.settingConfig.enableTransparentColor ? `opacity: ${pageColor.transparency ? pageColor.transparency[angle.color + key] : '1'};` : ''
-      const border = this.settingConfig.hideBorder ? '' : `border: 1px solid ${data.display ? pageColor.border : 'transparent'};`
+      const opacity = this.settingConfig.enableTransparentColor ? `opacity: ${pageColor.transparency ? pageColor.transparency[color + key] : '1'};` : ''
+      const border = this.settingConfig.hideBorder ? '' : `border: 1px solid ${display ? pageColor.border : 'transparent'};`
       return transform + backgroundColor + opacity + border
     },
     handleClose () { // 关闭提示

@@ -92,8 +92,9 @@
       <div class="head" id="drag">更改基本配置</div>
       <div class="body">
         <div class="speed">
-          <span>单层旋转速度</span>
-          <input type="text" v-model.number="configInformation.rotateTime">
+          <span>单层旋转耗时</span>
+          <input type="number" disabled v-model.number="configInformation.rotateTime">
+          <el-slider class="slider" v-model="configInformation.grade" :min="0" :max="10" :step=".5"></el-slider>
         </div>
         <div class="formula">
           <span>自定义公式</span>
@@ -228,7 +229,7 @@ export default {
         }
         dynamicData[index] = {
           display: true, // 是否显示 （在魔方旋转时使用）
-          color
+          color // 魔方各个面的颜色 数组形式 顺序为 上、右、下、左、前、后
         }
         allColor[index] = color
       })
@@ -281,7 +282,8 @@ export default {
         bgcColor, // 背景颜色
         pageColor, // 页面颜色
         companyLength,
-        rotateTime // 魔方单层旋转所需的时间
+        rotateTime, // 魔方单层旋转所需的时间
+        grade: 5, // 魔方旋转速度的等级 0-10 0为无需时间
       },
       menuMoveConfig: { // 菜单配置信息
         display: true
@@ -326,10 +328,12 @@ export default {
     'settingConfig.hideBorder'(newValue) {
       this.settingConfig.dialogVisible = this.settingConfig.permanentClose ? false : !newValue && !this.settingConfig.hideInside
     },
-    'configInformation.rotateTime'(newValue) {
-      if (typeof newValue !== 'number') {
+    'configInformation.grade'(newValue) {
+      if (newValue === 0) {
         this.configInformation.rotateTime = 0
+        return
       }
+      this.configInformation.rotateTime = Math.round(rotateTime * Math.pow(2, newValue - 5))
     }
   },
   methods: {
@@ -1369,10 +1373,20 @@ export default {
         }
       }
 
+      &.speed {
+        &>input {
+          width: 62px;
+        }
+
+        .slider {
+          width: 150px;
+        }
+      }
+
       &.spacing {
         .slider {
           margin-left: 10px;
-          width: 200px;
+          width: 220px;
         }
       }
     }

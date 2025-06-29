@@ -402,14 +402,17 @@ export default {
     },
     disruptionHanlder() { // 打乱
       if (!this.intercept) return // 单层旋转时退出逻辑
-      const keys = ['r', 'l', 'f', 'b', 'u', 'd']
+      const faces = ['r', 'l', 'f', 'b', 'u', 'd']
+      const suffixs = ['', '\'', '2']
       const disruptionFormula = [] // 公式
       const disruptionFormulaKeys = [] // 公式对应字符
-      let preKey = '', key = ''
+      let lastFace = '', face = ''
       for (let i = 0; i < 20; i++) {
-        do { key = keys[Math.floor(Math.random() * 6)] } while (key === preKey) // 防止两次生成同一个步骤
-        preKey = key
-        disruptionFormulaKeys.push(key)
+        do { face = faces[Math.floor(Math.random() * 6)] } while (face === lastFace) // 防止两次生成同一个步骤
+        lastFace = face
+        const suffix = Math.floor(Math.random() * 3)
+        disruptionFormulaKeys.push(face + suffixs[suffix])
+        const key = suffix ? face + suffix : face
         disruptionFormula.push(this.operation[key])
       }
       this._recursion(disruptionFormula).then(() => { // 执行打乱公式
@@ -1022,7 +1025,8 @@ export default {
       }
     },
     _strToFormula(originStr) { // 字符串转公式
-      let str = originStr.replace(/'/g, '1')
+      originStr = originStr.replace(/\s+/g, '')
+      let str = originStr.replace(/'/g, '1').toLowerCase()
       const formula = []
       const errorStrIndex = new Map()
       for (let l = 0, r = 1, len = str.length; r <= len; r++) {

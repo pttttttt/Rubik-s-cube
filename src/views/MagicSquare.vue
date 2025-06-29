@@ -12,19 +12,19 @@
       </div>
       <!-- 魔方本体(旋转) -->
       <div id="cube" class="subject-one" :style="getWholeSize + revolve" @transitionend="transitionEndHandler">
-        <div class="diamond" v-for="(data, i) in data" :key="data.id" :style="pieceStyle(data.deviation)">
+        <div class="diamond" v-for="(data, i) in data" :key="data.id"
+          :style="pieceStyle(data.deviation, dynamicData[i].display)">
           <template v-for="(color, j) in dynamicData[i].color">
-            <div v-if="!(settingConfig.hideInside && color === 'hide')" :key="j"
-              :style="style(dynamicData[i].display, color, j)"></div>
+            <div v-if="!(settingConfig.hideInside && color === 'hide')" :key="j" :style="style(color, j)"></div>
           </template>
         </div>
       </div>
       <!-- 魔方复制体(静止) -->
       <div class="subject-two" :style="getWholeSize">
-        <div class="diamond" v-for="(data, i) in datas" :key="data.id" :style="pieceStyle(data.deviation)">
+        <div class="diamond" v-for="(data, i) in datas" :key="data.id"
+          :style="pieceStyle(data.deviation, dynamicDatas[i].display)">
           <template v-for="(color, j) in dynamicDatas[i].color">
-            <div v-if="!(settingConfig.hideInside && color === 'hide')" :key="j"
-              :style="style(dynamicDatas[i].display, color, j)"></div>
+            <div v-if="!(settingConfig.hideInside && color === 'hide')" :key="j" :style="style(color, j)"></div>
           </template>
         </div>
       </div>
@@ -1112,18 +1112,18 @@ export default {
         fn()
       }
     },
-    pieceStyle(deviation) { // 每个块的样式
+    pieceStyle(deviation, display) { // 每个块的样式
       const companyLength = this.configInformation.companyLength
       const str = deviation[0] * companyLength + 'px,' + deviation[1] * companyLength + 'px,' + deviation[2] * companyLength + 'px'
-      return `transform: translate3d(${str}); transition: 0.2s;`
+      return `transform: translate3d(${str}); transition: 0.2s; display: ${display ? 'block' : 'none'};`
     },
-    style(display, color, i) { // 每个面的样式
+    style(color, i) { // 每个面的样式
       const transform = `transform: ${angleMap[i]} translateZ(50px);`
       const pageColor = this.configInformation.pageColor
-      const backgroundColor = `background: ${display ? pageColor[color] : 'transparent'};`
+      const backgroundColor = `background: ${pageColor[color]};`
       const key = this.rotateOrNot ? 'Overlap' : ''
       const opacity = this.settingConfig.enableTransparentColor ? `opacity: ${pageColor.transparency ? pageColor.transparency[color + key] : '1'};` : ''
-      const border = this.settingConfig.hideBorder ? '' : `border: 1px solid ${display ? pageColor.border : 'transparent'};`
+      const border = this.settingConfig.hideBorder ? '' : `border: 1px solid ${pageColor.border};`
       return transform + backgroundColor + opacity + border
     },
     handleClose() { // 关闭提示

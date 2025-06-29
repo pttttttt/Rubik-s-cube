@@ -1073,7 +1073,7 @@ export default {
         }
         simplifyFormula.pop() // 删除上一步
         const sum = curStep[1] + preStep[1] // 两步旋转角度叠加
-        if (sum === 0) continue
+        if (sum === 0 || Math.abs(sum) === 360) continue // 两次旋转后角度为0则抛弃步骤
         const map = { '270': -90, '-270': 90, '-180': 180 }
         simplifyFormula.push([curStep[0], map[sum] || sum])
       }

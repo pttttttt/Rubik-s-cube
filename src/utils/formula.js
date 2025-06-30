@@ -9,7 +9,7 @@ export const operation = {
   u: ['u', 90], u1: ['u', -90], u2: ['u', 180],
   d: ['d', 90], d1: ['d', -90], d2: ['d', -180]
 }
-const { r, r1, r2, l, l1, l2, f, f1, f2, b, b1, b2, u, u1, u2, d, d2 } = operation
+const { r, r1, r2, l, l1, l2, f, f1, f2, b, b1, b2, u, u1, u2, d, d1, d2 } = operation
 /**
  * 每一个面相对位置映射
  */
@@ -108,9 +108,9 @@ export const formulaButton = [{ // 公式配置按钮
   name: '顶层 棱块'
 }]
 export const otherFormula = { // 其他公式
-  crossOne: [r, u, r1, u1, r, u, r1, b, u2, b1, u1, l, u2, l1, u1, l, u, l1, u2, f, u2, f1, u1, f, u, f1, u2, f1, u, f, u, r, u1, r1, u1, l1, u, l, u, f, u1, f1, u2, b, u1, b1, u1, r1, u, r, u2, b1, u, b, u, l, u1, l1, r1, f, r, f1, u1, f1, u1, f, u, f1, u1, f, u, f1, u, f, u, r, u1, r, u, r, u, r, u1, r1, u1, r2],
-  crossTwo: [b, u, b1, u1, b, u, b1, l, u2, l1, u1, f, u2, f1, u1, f, u, f1, u2, r, u2, r1, u1, r, u, r1, u2, r1, u, r, u, b, u1, b1, u1, f1, u, f, u, r, u1, r1, u2, l, u1, l1, u1, b1, u, b, u2, l1, u, l, u, f, u1, f1, b1, r, b, r1, u1, r1, u, r, l1, u2, l, u, l1, u1, l, u, l1, u, l, u, f, u1, f, u, f, u, f, u1, f1, u1, f2],
-  crossThree: [b1, u1, b, u, b1, u1, b, r1, u2, r, u, f1, u2, f, u, f1, u1, f, u2, f, u2, f1, u1, f, u, f1, u, b, u1, b1, u1, r1, u, r, u, l, u1, l1, u1, b1, u, b, u, f, u1, f1, u1, l1, u, l, u2, r, u1, r1, u1, f1, u, f, l1, b, l, b1, u1, b1, u, b, u2, f, r1, f, l2, f1, r, f, l2, f2, u],
+  crossOne: [l2, b2, d, r2, d2, f2, u, b2, f2, d1, l2, u2, b2, u1, l1, b2, f2, d2, u2, r1],
+  crossTwo: [f2, l2, d, b2, d2, r2, u, l2, r2, d1, f2, u2, l2, u1, b1, l2, r2, d2, u2, f1],
+  crossThree: [l2, b2, d, r2, d2, f2, u, b2, f2, d1, l2, u2, b2, u1, l1, b2, f2, d2, u2, r1],
   flower: [r2, l2, u2, d2, f2, b2],
   changeCenterBlock: [r1, l, u1, d, f1, b, r1, l]
 }

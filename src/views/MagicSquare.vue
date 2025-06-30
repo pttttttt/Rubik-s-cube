@@ -83,6 +83,8 @@
           <div @click="hideTip = true" title="显示魔方表面的遮罩层">显示</div>
           <div @click="menuMoveConfig.display = false" title="关闭此菜单，使用'ctrl+空格键'再次打开">关闭</div>
           <div @click="settingConfig.display = !settingConfig.display" title="打开设置面板">设置</div>
+          <!-- <div @click="autoRecoveryItTwoStep" title="打开设置面板">生成公式</div>
+          <div @click="strToArrHanlder" title="打开设置面板">逆向</div> -->
         </div>
         <div class="formula" @click="pasteTextToClipboard(outputText)">{{ outputText }}</div>
       </div>
@@ -173,7 +175,7 @@
 </template>
 
 <script>
-import { deepCopy, throttle, pasteTextToClipboard } from '../utils/util.js'
+import { deepCopy, throttle, pasteTextToClipboard, extractAsStr, strToArr } from '../utils/util.js'
 import { degToSuffixMap, layerToAxisMap, keyUpEventMap, keyDownEventMap, angleMap } from '../utils/map.js'
 import { operation, formula, otherFormula, formulaButton, otherFormulaButton } from '../utils/formula.js'
 import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
@@ -231,7 +233,7 @@ export default {
           display: true, // 是否显示 （在魔方旋转时使用）
           color // 魔方各个面的颜色 数组形式 顺序为 上、右、下、左、前、后
         }
-        allColor[index] = color
+        allColor[index] = deepCopy(color)
       })
       return [staticData, dynamicData]
     }
@@ -474,16 +476,15 @@ export default {
       this.data.forEach((v, i) => v.layer[layer] ? this.dynamicDatas[i].display = boolean : this.dynamicData[i].display = boolean)
     },
     _restore() { // 通过重置各个色块颜色复原
-      for (let i = 0, n = this.data.length; i < n; i++) {
-        const itemAngle = this.data[i].angle
-        for (let j = 0, n = itemAngle.length; j < n; j++) {
+      for (let i = 0; i < 27; i++) {
+        for (let j = 0; j < 6; j++) {
           const color = this.allColor[i][j]
-          itemAngle[j].color = color
-          this.datas[i].angle[j].color = color
+          this.dynamicData[i].color[j] = color
+          this.dynamicDatas[i].color[j] = color
         }
       }
     },
-    _autoRecovery(data = this.data, dynamicData = this.dynamicData) { // 以层先法逻辑自动生成公式并复原
+    _autoRecovery(data = this.data, dynamicData = this.dynamicData) { // 以层先法自动生成公式并复原
       const that = this
       that.isAutoRecovery = true
       that.startRecordHandler()
@@ -983,6 +984,15 @@ export default {
         that.isAutoRecoveryFormula = false
       })
     },
+    // autoRecoveryItTwoStep() { // 以两步还原法生成魔方公式
+    //   const str = extractAsStr(this.dynamicData).toUpperCase()
+    //   console.log(str)
+    // },
+    // strToArrHanlder() {
+    //   const str = 'FFDLUUDBRBFLURDBFDFRDDFBRLLUBURDLFDFUURDLRUUBBRRLBBLFL'
+    //   strToArr(this.dynamicData, this.dynamicDatas, str)
+    //   console.log(str)
+    // },
     _keyUpEvent(e) { // 键盘弹起事件
       const action = keyUpEventMap[e.key]
       if (!action) return

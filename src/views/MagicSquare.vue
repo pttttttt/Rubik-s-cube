@@ -83,8 +83,8 @@
           <div @click="hideTip = true" title="显示魔方表面的遮罩层">显示</div>
           <div @click="menuMoveConfig.display = false" title="关闭此菜单，使用'ctrl+空格键'再次打开">关闭</div>
           <div @click="settingConfig.display = !settingConfig.display" title="打开设置面板">设置</div>
-          <!-- <div @click="autoRecoveryItTwoStep" title="打开设置面板">生成公式</div>
-          <div @click="strToArrHanlder" title="打开设置面板">逆向</div> -->
+          <div @click="autoRecoveryItTwoStep" title="打开设置面板">生成公式</div>
+          <div @click="strToArrHanlder" title="打开设置面板">逆向</div>
         </div>
         <div class="formula" @click="pasteTextToClipboard(outputText)">{{ outputText }}</div>
       </div>
@@ -181,6 +181,7 @@ import { operation, formula, otherFormula, formulaButton, otherFormulaButton } f
 import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
 import colorExchange from '../utils/colorExchange.js'
 import DragMenu from '../components/DragMenu.vue'
+import ajax from '../utils/ajax.js'
 
 export default {
   name: 'MagicSquare',
@@ -984,15 +985,19 @@ export default {
         that.isAutoRecoveryFormula = false
       })
     },
-    // autoRecoveryItTwoStep() { // 以两步还原法生成魔方公式
-    //   const str = extractAsStr(this.dynamicData).toUpperCase()
-    //   console.log(str)
-    // },
-    // strToArrHanlder() {
-    //   const str = 'FFDLUUDBRBFLURDBFDFRDDFBRLLUBURDLFDFUURDLRUUBBRRLBBLFL'
-    //   strToArr(this.dynamicData, this.dynamicDatas, str)
-    //   console.log(str)
-    // },
+    autoRecoveryItTwoStep() { // 以两步还原法生成魔方公式
+      const facelets = extractAsStr(this.dynamicData).toUpperCase()
+      ajax.post('solveTwoPhase', { facelets }).then(res => {
+        this.startRecordHandler()
+        const solution = this._strToFormula(res.solution)
+        this._recursion(solution).then(() => this.closeRecordHandler())
+      })
+    },
+    strToArrHanlder() {
+      const str = 'FFDLUUDBRBFLURDBFDFRDDFBRLLUBURDLFDFUURDLRUUBBRRLBBLFL'
+      strToArr(this.dynamicData, this.dynamicDatas, str)
+      console.log(str)
+    },
     _keyUpEvent(e) { // 键盘弹起事件
       const action = keyUpEventMap[e.key]
       if (!action) return

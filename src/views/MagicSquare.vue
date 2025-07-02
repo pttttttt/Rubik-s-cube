@@ -5,13 +5,15 @@
     <!-- 魔方 -->
     <div class="box" :style="getBoxStyle" @mousedown="mouseDownHandler">
       <!-- 悬浮在魔方每个面上的遮罩层 鼠标点击时传递相应的参数以控制魔方旋转 -->
-      <div class="tips" v-show="hideTip" v-for="data in tips" :key="data.id" @click="clickHandler(data.id, true)"
-        @contextmenu.prevent="clickHandler(data.id, false)"
-        :style="`${getWholeSize} transform: ${data.deg} translateZ(${151 + configInformation.companyLength - 100}px);`">
-        <img src="../assets/fangxiang.png" alt="">
+      <div class="tips-box" :style="getWholeSize">
+        <div class="tips" v-show="hideTip" v-for="data in tips" :key="data.id" @click="clickHandler(data.id, true)"
+          @contextmenu.prevent="clickHandler(data.id, false)"
+          :style="`transform: ${data.deg} translateZ(${151 + configInformation.companyLength - 100}px);`">
+          <img src="../assets/fangxiang.png" alt="">
+        </div>
       </div>
       <!-- 魔方本体(旋转) -->
-      <div id="cube" class="subject-one" :style="getWholeSize + revolve" @transitionend="transitionEndHandler">
+      <div id="cube" class="subject-one" :style="revolve" @transitionend="transitionEndHandler">
         <div class="diamond" v-for="(data, i) in data" :key="data.id"
           :style="pieceStyle(data.deviation, dynamicData[i].display)">
           <template v-for="(color, j) in dynamicData[i].color">
@@ -20,7 +22,7 @@
         </div>
       </div>
       <!-- 魔方复制体(静止) -->
-      <div class="subject-two" :style="getWholeSize">
+      <div class="subject-two">
         <div class="diamond" v-for="(data, i) in datas" :key="data.id"
           :style="pieceStyle(data.deviation, dynamicDatas[i].display)">
           <template v-for="(color, j) in dynamicDatas[i].color">
@@ -200,10 +202,10 @@ export default {
     ]
     const allColor = [] // 初始魔方的所有块每个面的颜色 复原时使用
     const map = {
-      u: { cI: 0, axis: 1, num: 0 },
-      r: { cI: 1, axis: 0, num: 2 },
-      d: { cI: 2, axis: 1, num: 2 },
-      l: { cI: 3, axis: 0, num: 0 },
+      u: { cI: 0, axis: 1, num: -1 },
+      r: { cI: 1, axis: 0, num: 1 },
+      d: { cI: 2, axis: 1, num: 1 },
+      l: { cI: 3, axis: 0, num: -1 },
       f: { cI: 4, axis: 2, num: 1 },
       b: { cI: 5, axis: 2, num: -1 },
     }
@@ -213,7 +215,7 @@ export default {
       const staticData = []
       const dynamicData = []
       basicPositioInfo.forEach((positioStr, index) => {
-        const deviation = [1, 1, 0]
+        const deviation = [0, 0, 0]
         const color = { 0: 'hide', 1: 'hide', 2: 'hide', 3: 'hide', 4: 'hide', 5: 'hide' } // 伪数组 防止vue数据劫持失效
         const layer = { u: false, d: false, r: false, l: false, f: false, b: false } // 当前块的位置 用布尔值代替字符串方便后续操作
         for (let i = 0; i < 3; i++) { // 遍历字符串 v
@@ -321,7 +323,7 @@ export default {
       const { rubikSCubeRotateConfig, transitionTime } = this
       const transform = `transform: translate(-50%, -50%) rotateX(${initialAngle.x + rubikSCubeRotateConfig.x}deg) rotateY(${initialAngle.y + rubikSCubeRotateConfig.y}deg);`
       const transition = `transition: all ${transitionTime}s;`
-      return transform + transition + this.getWholeSize
+      return transform + transition
     }
   },
   watch: {
@@ -1138,7 +1140,7 @@ export default {
     pieceStyle(deviation, display) { // 每个块的样式
       const companyLength = this.configInformation.companyLength
       const str = deviation[0] * companyLength + 'px,' + deviation[1] * companyLength + 'px,' + deviation[2] * companyLength + 'px'
-      return `transform: translate3d(${str}); transition: 0.2s; display: ${display ? 'block' : 'none'};`
+      return `transform: translate3d(${str}); transition: all 0.2s; display: ${display ? 'block' : 'none'};`
     },
     style(color, i) { // 每个面的样式
       const transform = `transform: ${angleMap[i]} translateZ(50px);`
@@ -1198,15 +1200,27 @@ export default {
 }
 
 .box {
+  width: 100px;
+  height: 100px;
   position: fixed;
   top: 50%;
   left: 50%;
   transform-style: preserve-3d;
 }
 
-.tips {
+.tips-box {
   position: absolute;
-  top: -0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transform-style: preserve-3d;
+}
+
+.tips {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
   left: 0;
   text-align: center;
   display: flex;
@@ -1228,6 +1242,8 @@ export default {
 /* 魔方主体 */
 .subject-one,
 .subject-two {
+  width: 100px;
+  height: 100px;
   position: absolute;
   transform-style: preserve-3d;
 

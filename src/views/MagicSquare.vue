@@ -983,7 +983,7 @@ export default {
       that.configInformation.rotateTime = 0 // 将单层旋转时间更改为零 降低生成公式耗时
       that._autoRecovery().then(() => { // 调用自动复原的函数来生成复原公式
         that.configInformation.rotateTime = tmpTime // 恢复初始时间
-        that.data = deepCopy(that.datas) // 将已复原的数据还原成初始的状态
+        that.dynamicData = deepCopy(that.dynamicDatas) // 将已复原的数据还原成初始的状态
         that.isAutoRecoveryFormula = false
       })
     },

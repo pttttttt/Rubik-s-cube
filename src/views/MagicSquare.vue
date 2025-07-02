@@ -214,7 +214,7 @@ export default {
       const dynamicData = []
       basicPositioInfo.forEach((positioStr, index) => {
         const deviation = [1, 1, 0]
-        const color = Array(6).fill('hide')
+        const color = { 0: 'hide', 1: 'hide', 2: 'hide', 3: 'hide', 4: 'hide', 5: 'hide' } // 伪数组 防止vue数据劫持失效
         const layer = { u: false, d: false, r: false, l: false, f: false, b: false } // 当前块的位置 用布尔值代替字符串方便后续操作
         for (let i = 0; i < 3; i++) { // 遍历字符串 v
           const str = positioStr[i]
@@ -514,7 +514,7 @@ export default {
           if (formula.length !== 0) break // 如在之前的循环中已找到目标块，则退出循环
           let item = data[subscript.bottomAndCenterEdge[i]]
           const colorItem = dynamicData[subscript.bottomAndCenterEdge[i]]
-          for (let j = 0; j < colorItem.color.length; j++) { // 遍历每一个块的6个面
+          for (let j = 0; j < 6; j++) { // 遍历每一个块的6个面
             const tmpColor = colorItem.color[j] // 当前面的颜色所映射的字符
             if (tmpColor !== 'd') continue // 不是底部颜色（默认白色） 退出循环
             let str = item.original // 当前块的位置信息
@@ -591,7 +591,7 @@ export default {
           let judge = false
           let tmpColor = ''
           let color = ''
-          for (let j = 0; j < colorItem.color.length; j++) {
+          for (let j = 0; j < 6; j++) {
             tmpColor = colorItem.color[j]
             if (tmpColor === 'd') judge = true
             if (tmpColor !== 'hide' && tmpColor !== 'd') {
@@ -656,7 +656,7 @@ export default {
           const colorItem = dynamicData[subscript.topCorner[i]]
           let judge = false
           let color = []
-          for (let j = 0; j < colorItem.color.length; j++) {
+          for (let j = 0; j < 6; j++) {
             const tmpColor = colorItem.color[j]
             if (tmpColor === 'd') judge = true
             if (tmpColor !== 'hide' && tmpColor !== 'd') {
@@ -717,7 +717,7 @@ export default {
           const colorItem = dynamicData[subscript.topEdge[i]]
           let judge = true
           let colorArr = []
-          for (let j = 0; j < colorItem.color.length; j++) {
+          for (let j = 0; j < 6; j++) {
             const tmpColor = colorItem.color[j]
             if (tmpColor === 'u') {
               judge = false
@@ -776,7 +776,7 @@ export default {
           const colorItem = dynamicData[arr[i]]
           const correctPosition = item.original.split('')
           const currentPosition = []
-          for (let j = 0; j < colorItem.color.length; j++) {
+          for (let j = 0; j < 6; j++) {
             if (currentPosition.length >= 3) break
             const tmpColor = colorItem.color[j]
             if (tmpColor !== 'hide') {

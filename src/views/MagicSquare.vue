@@ -23,7 +23,7 @@
       </div>
       <!-- 魔方复制体(静止) -->
       <div class="subject-two">
-        <div class="diamond" v-for="(data, i) in datas" :key="data.id"
+        <div class="diamond" v-for="(data, i) in data" :key="data.id"
           :style="pieceStyle(data.deviation, dynamicDatas[i].display)">
           <template v-for="(color, j) in dynamicDatas[i].color">
             <div v-if="!(settingConfig.hideInside && color === 'hide')" :key="j" :style="style(color, j)"></div>
@@ -178,8 +178,8 @@
 
 <script>
 import { deepCopy, throttle, pasteTextToClipboard, extractAsStr, strToArr } from '../utils/util.js'
-import { degToSuffixMap, layerToAxisMap, keyUpEventMap, keyDownEventMap, angleMap } from '../utils/map.js'
-import { operation, formula, otherFormula, formulaButton, otherFormulaButton } from '../utils/formula.js'
+import { degToSuffixMap, layerToAxisMap, keyUpEventMap, keyDownEventMap, angleMap, colorIndexToLayerMap, autoRecoveryMap } from '../utils/map.js'
+import { operation, formula, otherFormula, formulaButton, otherFormulaButton, autoRecoveryFormula } from '../utils/formula.js'
 import { pageColor, bgcColor, rotateTime, initialAngle, companyLength, tips } from '../utils/configInformation.js'
 import colorExchange from '../utils/colorExchange.js'
 import DragMenu from '../components/DragMenu.vue'
@@ -210,7 +210,7 @@ export default {
       b: { cI: 5, axis: 2, num: -1 },
     }
     const data = _optimizationDataHandler()
-    const datas = deepCopy(data)
+    const dynamicDatas = deepCopy(data[1])
     function _optimizationDataHandler() { // 基于魔方基础位置信息做进一步处理 方便后续控制dom元素
       const staticData = []
       const dynamicData = []
@@ -218,6 +218,7 @@ export default {
         const deviation = [0, 0, 0]
         const color = { 0: 'hide', 1: 'hide', 2: 'hide', 3: 'hide', 4: 'hide', 5: 'hide' } // 伪数组 防止vue数据劫持失效
         const layer = { u: false, d: false, r: false, l: false, f: false, b: false } // 当前块的位置 用布尔值代替字符串方便后续操作
+        const colorIndex = [] // 非 hide 颜色的面的索引
         for (let i = 0; i < 3; i++) { // 遍历字符串 v
           const str = positioStr[i]
           if (!map[str]) continue // 排除 center 块
@@ -225,12 +226,14 @@ export default {
           deviation[axis] = num
           color[cI] = str
           layer[str] = true
+          colorIndex.push(cI)
         }
         staticData[index] = { // 单个块的配置信息
           deviation, // 当前块距中心偏移量
           layer, // 位置信息 （布尔值）
           id: index, // 当前块在整个魔方体数组的下标
           original: positioStr, // 原始位置信息 （自动还原时使用）
+          colorIndex, // 非 hide 颜色的面的索引
         }
         dynamicData[index] = {
           display: true, // 是否显示 （在魔方旋转时使用）
@@ -241,10 +244,9 @@ export default {
       return [staticData, dynamicData]
     }
     return {
-      data: Object.freeze(data[0]), // 只读
-      datas: Object.freeze(datas[0]),
+      data: Object.freeze(data[0]), // 只读的静态数据 两个魔方共用同一个
       dynamicData: data[1], // 动态数据
-      dynamicDatas: datas[1],
+      dynamicDatas,
       tips: Object.freeze(tips),
       allColor: Object.freeze(allColor),
       operation: Object.freeze(operation), // 魔方所有操作方法
@@ -455,7 +457,7 @@ export default {
       const dstArr = []
       for (let i = formulaArr.length - 1; i >= 0; i--) {
         const item = [...formulaArr[i]]
-        item[1] !== 180 && item[1] !== -180 && (item[1] = -item[1])
+        if (Math.abs(item[1]) !== 180) item[1] = -item[1] // 180度旋转的步骤无需逆转
         dstArr.push(item)
       }
       return dstArr
@@ -487,469 +489,349 @@ export default {
         }
       }
     },
-    _autoRecovery(data = this.data, dynamicData = this.dynamicData) { // 以层先法自动生成公式并复原
+    _autoRecovery() { // 以层先法自动生成公式并复原
       const that = this
       that.isAutoRecovery = true
       that.startRecordHandler()
+      const data = this.data
+      const dyData = this.dynamicData
       const allFormula = that.formula
-      const { r2, l2, f, f1, f2, b, b1, b2, u, u1, u2 } = that.operation
+      const MAP = autoRecoveryMap // 层先法复原专用map
+      const FORMULA = autoRecoveryFormula // 层先法复原专用公式
+      const { r2, l2, f2, b2, u, u1, u2 } = that.operation
       const subscript = {
         topEdge: [1, 3, 5, 7], // 顶层棱块下标
         centerEdge: [9, 11, 13, 15], // 中间层棱块下标
-        bottomAndCenterEdge: [9, 11, 13, 15, 19, 21, 23, 25], // 底层和中间层棱块下标
+        bottomEdge: [19, 21, 23, 25], // 底层棱块下标
         topCorner: [0, 2, 4, 6], // 顶层角块下标
         bottomCorner: [18, 20, 22, 24], // 底层角块下标
       }
+      const flags = { // 节流
+        one: true,
+      }
+      // 为了方便写注释 以下将会默认魔方颜色为初始颜色 注释中所有面的称谓都用所对应的颜色代替
+      // u: 黄色 r: 红色 d: 白色 l: 橙色 f: 蓝色 b: 绿色
 
-      // 底层十字架复原 第一步
-      function bottomCrossOne(res) { // 从底层和中间层的棱块中寻找有白色面的块
-        let formula = [] // 需执行的公式
-        if (!positionError([19, 21, 23, 25])) {
-          if (dynamicData[19].color[2] !== 'd') formula.push(...allFormula.a['f'])
-          if (dynamicData[21].color[2] !== 'd') formula.push(...allFormula.a['l'])
-          if (dynamicData[23].color[2] !== 'd') formula.push(...allFormula.a['b'])
-          if (dynamicData[25].color[2] !== 'd') formula.push(...allFormula.a['r'])
-          that._recursion(formula).then(() => res())
+      // 底层十字架复原 第一步 b1
+      function bottomCrossOne(reslove) { // 从底层和中间层的棱块中寻找含白色面的块 并移动至顶层
+        const formula = [] // 公式
+        if (flags.one) { // 只需要判断一次
+          if (positionError(subscript.bottomEdge) === -1) { // 判断底层十字架是否已复原
+            if (dyData[19].color[2] !== 'd') formula.push(f2)
+            if (dyData[21].color[2] !== 'd') formula.push(l2)
+            if (dyData[23].color[2] !== 'd') formula.push(b2)
+            if (dyData[25].color[2] !== 'd') formula.push(r2)
+            that._recursion(formula).then(reslove)
+            return
+          }
+          flags.one = false
+        }
+        const [layerD, layerNotD] = _findLayer(subscript.centerEdge) // 查找中间层棱块
+        if (layerD) {
+          const [targetId, map] = MAP.M1[layerNotD]
+          const top = _top(targetId) // 将顶层空位调整至对应位置
+          top && formula.push(top)
+          formula.push(map[layerD])
+          that._recursion(formula).then(() => bottomCrossOne(reslove))
           return
         }
-        for (let i = 0; i < subscript.bottomAndCenterEdge.length; i++) { // 遍历出所需棱块的下标
-          if (formula.length !== 0) break // 如在之前的循环中已找到目标块，则退出循环
-          let item = data[subscript.bottomAndCenterEdge[i]]
-          const colorItem = dynamicData[subscript.bottomAndCenterEdge[i]]
-          for (let j = 0; j < 6; j++) { // 遍历每一个块的6个面
-            const tmpColor = colorItem.color[j] // 当前面的颜色所映射的字符
-            if (tmpColor !== 'd') continue // 不是底部颜色（默认白色） 退出循环
-            let str = item.original // 当前块的位置信息
-            if (/f/.test(str)) {
-              rightOrLeft(str, () => {
-                formula = free(1, [f1])
-              }, () => {
-                formula = free(1, [f])
-              }, () => {
-                formula = free(1, [f2])
-              })
-            } else if (/b/.test(str)) {
-              rightOrLeft(str, () => {
-                formula = free(5, [b])
-              }, () => {
-                formula = free(5, [b1])
-              }, () => {
-                formula = free(5, [b2])
-              })
-            } else {
-              rightOrLeft(str, () => {
-                formula = free(7, [r2])
-              }, () => {
-                formula = free(3, [l2])
-              })
-            }
-          }
-        }
-        if (formula.length === 0) return res()
-        that._recursion(formula, false).then(() => {
-          bottomCrossOne(res)
-        })
-      }
-      function free(index, formula) {
-        if (judge(index)) return formula
-        let indexArr = subscript.topEdge.filter(v => v !== index)
-        for (let i = 0; i < indexArr.length; i++) {
-          if (judge(indexArr[i])) {
-            let tmpFormula = []
-            let index2 = indexArr[i]
-            if (index - index2 === 2) tmpFormula = [u]
-            else if (index - index2 === -2) tmpFormula = [u1]
-            else tmpFormula = [u2]
-            return [...tmpFormula, ...formula]
-          }
-        }
-        function judge(index) {
-          for (let i = 0; i < 6; i++) {
-            let tmpColor = dynamicData[index].color[i]
-            if (tmpColor === 'd') {
-              return false
-            }
-          }
-          return true
-        }
-      }
-      function rightOrLeft(str, callbackRight, callbackLeft, callbackOther) {
-        if (/r/.test(str)) {
-          callbackRight && callbackRight()
-        } else if (/l/.test(str)) {
-          callbackLeft && callbackLeft()
+        const [layerD2, layerNotD2] = _findLayer(subscript.bottomEdge) // 查找底层棱块
+        if (!layerD2) return reslove() // 中底层没有任何含白色的棱块 第一步结束
+        if (layerD2 === 'd') {
+          const targetId = MAP.M1[layerNotD2][0]
+          const tmpFormula = _top(targetId)
+          tmpFormula && formula.push(tmpFormula)
+          formula.push(that.operation[layerNotD2 + '2'])
         } else {
-          callbackOther && callbackOther()
+          const targetId1 = MAP.M1[layerD2][0]
+          const top1 = _top(targetId1)
+          top1 && formula.push(top1)
+          formula.push(that.operation[layerD2])
+          const [targetId2, tmpFormula1] = MAP.M2[layerD2]
+          const top2 = _top(targetId2)
+          top2 && formula.push(top2)
+          formula.push(tmpFormula1)
+        }
+
+        that._recursion(formula).then(() => bottomCrossOne(reslove))
+
+        function _findLayer(indexArr) { // 含有白色的块两个面所对应层
+          let dCI = -1, notDCI = -1
+          for (let i = 0; i < indexArr.length; i++) { // 中间层棱块
+            const [cI0, cI1] = data[indexArr[i]].colorIndex
+            const colors = dyData[indexArr[i]].color
+            if (colors[cI0] === 'd') {
+              dCI = cI0
+              notDCI = cI1
+              break
+            } else if (colors[cI1] === 'd') {
+              dCI = cI1
+              notDCI = cI0
+              break
+            }
+          }
+          return [colorIndexToLayerMap[dCI], colorIndexToLayerMap[notDCI]]
+        }
+        function _top(index) { // 根据当前块的位置判断顶层旋转
+          if (!includD(index)) return null
+          for (let i = 0; i < subscript.topEdge.length; i++) {
+            const index2 = subscript.topEdge[i]
+            if (!includD(index2)) return topRotate(index2, index)
+          }
+          function includD(index) { // 判断当前块是否含白色
+            const [cI0, cI1] = data[index].colorIndex
+            const colors = dyData[index].color
+            return colors[cI0] === 'd' || colors[cI1] === 'd'
+          }
         }
       }
-
-      // 底层十字架复原 第二步
-      function bottomCrossTwo(res) {
-        const formula = []
+      // 底层十字架复原 第二步 b2
+      function bottomCrossTwo(reslove) { // 将顶层翻转的棱块复原
+        for (let i = 0; i < subscript.topEdge.length; i++) { // 中间层棱块
+          const [cI0, cI1] = data[subscript.topEdge[i]].colorIndex
+          const colors = dyData[subscript.topEdge[i]].color
+          let layerD = ''
+          if (colors[cI0] === 'd') layerD = colorIndexToLayerMap[cI0]
+          else if (colors[cI1] === 'd') layerD = colorIndexToLayerMap[cI1]
+          else continue // 当前棱块不含白色
+          if (layerD === 'u') continue // 当前棱块未翻转
+          that._recursion(FORMULA.F1[layerD]).then(() => bottomCrossTwo(reslove))
+          return
+        }
+        return reslove() // 顶层所有棱块未翻转 第二步结束
+      }
+      // 底层十字架复原 第三步 b3
+      function bottomCrossThree(reslove) { // 复原底层十字架
         for (let i = 0; i < subscript.topEdge.length; i++) {
-          if (formula.length !== 0) break
-          const item = data[subscript.topEdge[i]]
-          const colorItem = dynamicData[subscript.topEdge[i]]
-          let judge = false
-          let tmpColor = ''
-          let color = ''
-          for (let j = 0; j < 6; j++) {
-            tmpColor = colorItem.color[j]
-            if (tmpColor === 'd') judge = true
-            if (tmpColor !== 'hide' && tmpColor !== 'd') {
-              color = tmpColor
-              if (judge) break
-            }
-          }
-          if (!judge) continue
-          switch (color) {
-            case 'f':
-              formula.push(...topRotate(item.id - 1), ...judgeInvert(colorItem, color))
-              break
-            case 'r':
-              formula.push(...topRotate(item.id - 7), ...judgeInvert(colorItem, color))
-              break
-            case 'b':
-              formula.push(...topRotate(item.id - 5), ...judgeInvert(colorItem, color))
-              break
-            case 'l':
-              formula.push(...topRotate(item.id - 3), ...judgeInvert(colorItem, color))
-              break
-            default:
-              break
-          }
+          const { colorIndex: [cI0, cI1], id } = data[subscript.topEdge[i]]
+          const colors = dyData[subscript.topEdge[i]].color
+          let color = null // 顶层棱块上带白色块的另外一个面的颜色
+          if (colors[cI0] === 'd') color = colors[cI1]
+          else if (colors[cI1] === 'd') color = colors[cI0]
+          else continue // 当前棱块不含白色
+          const formula = []
+          const top = topRotate(id, MAP.M1[color][0])
+          top && formula.push(top)
+          formula.push(that.operation[color + '2'])
+          that._recursion(formula).then(() => bottomCrossThree(reslove))
+          return
         }
-        if (formula.length === 0) return res()
-        that._recursion(formula, false).then(() => {
-          bottomCrossTwo(res)
-        })
+        return reslove()
       }
-      function topRotate(diff) {
-        switch (diff) {
-          case 2:
-            return [u1]
-          case 4:
-            return [u2]
-          case 6:
-            return [u]
-          case -2:
-            return [u]
-          case -4:
-            return [u2]
-          case -6:
-            return [u1]
-          case 0:
-            return []
+      // 底层角块 第一步 b4
+      function bottomCornerOne(reslove) { // 将所有位置错误的底层角块复原
+        for (let i = 0; i < subscript.topCorner.length; i++) { // 找出顶层含有白色的角块 并还原
+          const { colorIndex, id } = data[subscript.topCorner[i]]
+          const colors = dyData[subscript.topCorner[i]].color
+          const layerArr = []
+          colorIndex.forEach(cI => (colors[cI] !== 'd') && layerArr.push(colors[cI]))
+          if (layerArr.length !== 2) continue // 该角块不含白色
+          const targetId = MAP.M3[layerArr[0]][layerArr[1]]
+          const top = topRotate(id, targetId)
+          that._recursion(top ? [top] : []).then(() => { // 将角块移动到目标位置的正上方
+            const dir = getDir(targetId) // 角块白色面的朝向
+            const [map, layer] = MAP.M4[targetId]
+            that._recursion(map[dir][layer]).then(() => bottomCornerOne(reslove))
+          })
+          return
         }
+        const errorId = positionError(subscript.bottomCorner) // 找出底层中位置错误的角块 并移到顶层
+        if (errorId !== -1) {
+          const layer = MAP.M5[errorId][1]
+          that._recursion(FORMULA.F2[layer]).then(() => bottomCornerOne(reslove))
+          return
+        }
+        return reslove()
       }
-      function judgeInvert(item, layer) {
-        if (item.color[0] !== 'd') {
-          return allFormula.a[layer]
+      // 底层角块 第二步 b5
+      function bottomCornerTwo(reslove) { // 将底层朝向错误的角块复原
+        for (let i = 0; i < subscript.bottomCorner.length; i++) { // 找出顶层含有白色的角块 并还原
+          const id = subscript.bottomCorner[i]
+          const dir = getDir(id)
+          if (dir === 'd') continue // 白色面朝向正确
+          const [map, layer] = MAP.M5[id]
+          let formula = FORMULA.F5[layer]
+          if (map[dir]) formula = that._reversal(formula)
+          that._recursion(formula).then(() => bottomCornerTwo(reslove))
+          return
         }
-        return [that.operation[layer + '2']]
+        return reslove()
       }
 
-      // 底层角块 复位
-      function bottomCornerPosition(res) {
-        const formula = []
-        for (let i = 0; i < subscript.topCorner.length; i++) {
-          if (formula.length !== 0) break
-          const item = data[subscript.topCorner[i]]
-          const colorItem = dynamicData[subscript.topCorner[i]]
-          let judge = false
-          let color = []
-          for (let j = 0; j < 6; j++) {
-            const tmpColor = colorItem.color[j]
-            if (tmpColor === 'd') judge = true
-            if (tmpColor !== 'hide' && tmpColor !== 'd') {
-              color.push(tmpColor)
-            }
-          }
-          if (!judge) continue
-          if (color.includes('f') && color.includes('r')) {
-            formula.push(...topRotate(item.id - 0), ...allFormula.b['f'])
-          } else if (color.includes('r') && color.includes('b')) {
-            formula.push(...topRotate(item.id - 6), ...allFormula.b['r'])
-          } else if (color.includes('b') && color.includes('l')) {
-            formula.push(...topRotate(item.id - 4), ...allFormula.b['b'])
-          } else if (color.includes('l') && color.includes('f')) {
-            formula.push(...topRotate(item.id - 2), ...allFormula.b['l'])
-          }
+      // 中间层棱块 第一步 c1
+      function centerEdgeOne(reslove) { // 将所有位置错误的中间层棱块复原
+        for (let i = 0; i < subscript.topEdge.length; i++) { // 找出顶层中不含黄色的棱块 并还原
+          const { colorIndex, id } = data[subscript.topEdge[i]]
+          const colors = dyData[subscript.topEdge[i]].color
+          const layerArr = []
+          colorIndex.forEach(cI => (colors[cI] !== 'u') && layerArr.push(colors[cI]))
+          if (layerArr.length !== 2) continue // 该棱块含有黄色
+          const correctId = MAP.M6[layerArr[0]][layerArr[1]] // 此棱块正确位置的id
+          const [map, layer] = MAP.M7[correctId] // layer: 公式起始层
+          const [targetId, F] = map[colors[0]] // 此棱块将要去往顶层棱块的id F: 公式
+          const top = topRotate(id, targetId)
+          const formula = top ? [top] : []
+          formula.push(...F[layer])
+          that._recursion(formula).then(() => centerEdgeOne(reslove))
+          return
         }
-        if (formula.length !== 0) {
-          that._recursion(formula, false).then(() => bottomCornerPosition(res))
-        } else {
-          const errorPosition = positionError(subscript.bottomCorner)
-          if (!errorPosition) return res()
-          const id = errorPosition.id
-          switch (id) {
-            case 18:
-              formula.push(...allFormula.b['f'])
-              break
-            case 20:
-              formula.push(...allFormula.b['l'])
-              break
-            case 22:
-              formula.push(...allFormula.b['b'])
-              break
-            case 24:
-              formula.push(...allFormula.b['r'])
-              break
-          }
-          that._recursion(formula, false).then(() => bottomCornerPosition(res))
+        const errorId = positionError(subscript.centerEdge) // 找出中间层位置错误的棱块 并移到顶层
+        if (errorId !== -1) {
+          const layer = MAP.M7[errorId][1]
+          that._recursion(FORMULA.F6[layer]).then(() => centerEdgeOne(reslove))
+          return
         }
+        return reslove()
       }
-      // 底层角块 复原
-      function bottomCorner(res) {
+      // 中间层棱块 第二步 c2
+      function centerEdgeTwo(reslove) { // 将所有翻转的中间层棱块复原
         const formula = []
-        if (dynamicData[18].color[2] !== 'd') formula.push(...allFormula.c['f'])
-        if (dynamicData[20].color[2] !== 'd') formula.push(...allFormula.c['l'])
-        if (dynamicData[22].color[2] !== 'd') formula.push(...allFormula.c['b'])
-        if (dynamicData[24].color[2] !== 'd') formula.push(...allFormula.c['r'])
-        if (formula.length === 0) return res()
-        that._recursion(formula, false).then(() => bottomCorner(res))
+        if (dyData[9].color[4] !== 'f') formula.push(...allFormula.centerLayerFlip['f'])
+        if (dyData[11].color[4] !== 'f') formula.push(...allFormula.centerLayerFlip['l'])
+        if (dyData[13].color[5] !== 'b') formula.push(...allFormula.centerLayerFlip['b'])
+        if (dyData[15].color[5] !== 'b') formula.push(...allFormula.centerLayerFlip['r'])
+        if (formula.length === 0) return reslove()
+        that._recursion(formula, false).then(() => reslove())
       }
 
-      // 中间层棱块 复位
-      function centerEdgePosition(res) {
-        const formula = []
-        for (let i = 0; i < subscript.topEdge.length; i++) {
-          if (formula.length !== 0) break
-          const item = data[subscript.topEdge[i]]
-          const colorItem = dynamicData[subscript.topEdge[i]]
-          let judge = true
-          let colorArr = []
-          for (let j = 0; j < 6; j++) {
-            const tmpColor = colorItem.color[j]
-            if (tmpColor === 'u') {
-              judge = false
-              break
-            }
-            if (tmpColor !== 'hide') colorArr.push(tmpColor)
-          }
-          if (!judge) continue
-          if (colorArr.includes('f') && colorArr.includes('r')) {
-            formula.push(...topRotate(item.id - 1), ...allFormula.centerLayerRight['f'])
-          } else if (colorArr.includes('r') && colorArr.includes('b')) {
-            formula.push(...topRotate(item.id - 7), ...allFormula.centerLayerRight['r'])
-          } else if (colorArr.includes('b') && colorArr.includes('l')) {
-            formula.push(...topRotate(item.id - 5), ...allFormula.centerLayerRight['b'])
-          } else if (colorArr.includes('l') && colorArr.includes('f')) {
-            formula.push(...topRotate(item.id - 3), ...allFormula.centerLayerRight['l'])
-          }
-        }
-        if (formula.length !== 0) {
-          that._recursion(formula, false).then(() => centerEdgePosition(res))
-        } else {
-          let errorPosition = positionError(subscript.centerEdge)
-          if (!errorPosition) return res()
-          const id = errorPosition.id
-          switch (id) {
-            case 9:
-              formula.push(...allFormula.centerLayerRight['f'])
-              break
-            case 11:
-              formula.push(...allFormula.centerLayerRight['l'])
-              break
-            case 13:
-              formula.push(...allFormula.centerLayerRight['b'])
-              break
-            case 15:
-              formula.push(...allFormula.centerLayerRight['r'])
-              break
-          }
-          that._recursion(formula, false).then(() => centerEdgePosition(res))
-        }
-      }
-      // 中间层棱块 复原
-      function center(res) {
-        const formula = []
-        if (dynamicData[9].color[4] !== 'f') formula.push(...allFormula.centerLayerFlip['f'])
-        if (dynamicData[11].color[4] !== 'f') formula.push(...allFormula.centerLayerFlip['l'])
-        if (dynamicData[13].color[5] !== 'b') formula.push(...allFormula.centerLayerFlip['b'])
-        if (dynamicData[15].color[5] !== 'b') formula.push(...allFormula.centerLayerFlip['r'])
-        if (formula.length === 0) return res()
-        that._recursion(formula, false).then(() => res())
-      }
-
-      function positionError(arr) { // 判断块是否在自己原本的位置
-        for (let i = 0; i < arr.length; i++) {
-          const item = data[arr[i]]
-          const colorItem = dynamicData[arr[i]]
-          const correctPosition = item.original.split('')
-          const currentPosition = []
-          for (let j = 0; j < 6; j++) {
-            if (currentPosition.length >= 3) break
-            const tmpColor = colorItem.color[j]
-            if (tmpColor !== 'hide') {
-              currentPosition.push(tmpColor)
-            }
-          }
-          const merge = new Set([...correctPosition, ...currentPosition])
-          if (merge.size !== correctPosition.length) {
-            return { id: item.id, color: currentPosition }
-          }
-        }
-        return false
-      }
-
-      // 顶层十字架 复位
-      function topCrossPosition(res) {
-        const formula = []
-        let counter = []
-        if (dynamicData[1].color[0] === 'u') counter.push(1)
-        if (dynamicData[3].color[0] === 'u') counter.push(3)
-        if (dynamicData[5].color[0] === 'u') counter.push(5)
-        if (dynamicData[7].color[0] === 'u') counter.push(7)
-        let sum = 0
-        switch (counter.length) {
-          case 4:
-            return res() // 已经复位
-          case 0:
-            formula.push(...allFormula.topLayerOne['f'], ...allFormula.topLayerTwo['f'])
-            break
-          default:
-            sum = counter[0] + counter[1]
-            switch (sum) {
-              case 6:
-                formula.push(...allFormula.topLayerTwo['r'])
-                break
-              case 10:
-                formula.push(...allFormula.topLayerTwo['f'])
-                break
-              case 4:
-                formula.push(...allFormula.topLayerOne['r'])
-                break
-              case 12:
-                formula.push(...allFormula.topLayerOne['l'])
-                break
-              case 8:
-                if (counter[0] === 3) {
-                  formula.push(...allFormula.topLayerOne['f'])
-                } else {
-                  formula.push(...allFormula.topLayerOne['b'])
-                }
-                break
-            }
-            break
-        }
-        that._recursion(formula).then(() => res())
-      }
-      // 顶面复原
-      function topSurface(res) {
-        const formula = []
+      // 顶层十字架复原 t1
+      function topCross(reslove) { // 复原顶层十字架
         const counter = []
-        if (dynamicData[0].color[0] !== 'u') {
-          counter.push({ id: 0, clockwise: dynamicData[0].color[1] === 'u' })
+        subscript.topEdge.forEach(id => {
+          const colors = dyData[id].color
+          if (colors[0] === 'u') counter.push(id)
+        })
+        if (counter.length === 4) return reslove() // 顶层十字架已复原
+        if (counter.length === 0) { // 顶层十字架只有中心块为黄色
+          that._recursion(allFormula.topLayerOne['f'])
+            .then(() => that._recursion(allFormula.topLayerTwo['f']))
+            .then(reslove)
+          return
         }
-        if (dynamicData[2].color[0] !== 'u') {
-          counter.push({ id: 2, clockwise: dynamicData[2].color[4] === 'u' })
-        }
-        if (dynamicData[4].color[0] !== 'u') {
-          counter.push({ id: 4, clockwise: dynamicData[4].color[3] === 'u' })
-        }
-        if (dynamicData[6].color[0] !== 'u') {
-          counter.push({ id: 6, clockwise: dynamicData[6].color[5] === 'u' })
-        }
-        let sum
+        let layer = MAP.M8[counter[0] + counter[1]]
+        if (!layer) layer = counter[0] === 3 ? 'f' : 'b'
+        that._recursion(allFormula.topLayerTwo[layer]).then(() => topCross(reslove))
+      }
+      // 顶面复原 t2
+      function topSurface(reslove) {
+        const counter = []
+        subscript.topCorner.forEach(id => {
+          const colors = dyData[id].color
+          if (colors[0] !== 'u') counter.push({ id, clockwise: colors[MAP.M9[id]] === 'u' })
+        })
+        let sum = 0
+        counter.forEach(item => sum += item.id)
+        let layer = ''
         switch (counter.length) {
           case 0:
-            return res()
+            return reslove()
           case 2:
-            sum = counter[0].id + counter[1].id
             if (sum === 6 || sum === 8) {
               let tmpId = counter[0].clockwise ? counter[0].id : counter[1].id
-              formula.push(...allFormula.topLayerFishOne[data[tmpId + 1].original[1]])
+              layer = data[tmpId + 1].original[1]
+              break
+            }
+            if (counter[0].id === 6) {
+              layer = counter[0].clockwise ? 'f' : 'r'
+              break
+            }
+            if (counter[0].clockwise) {
+              layer = data[counter[1].id + 1].original[1]
             } else {
-              if (counter[0].id === 6) {
-                formula.push(...(counter[0].clockwise ? allFormula.topLayerFishOne['f'] : allFormula.topLayerFishOne['r']))
-              } else {
-                if (counter[0].clockwise) {
-                  formula.push(...allFormula.topLayerFishOne[data[counter[1].id + 1].original[1]])
-                } else {
-                  formula.push(...allFormula.topLayerFishOne[data[counter[0].id + 1].original[1]])
-                }
-              }
+              layer = data[counter[0].id + 1].original[1]
             }
             break
           case 4:
-            if (dynamicData[0].color[4] === 'u' && dynamicData[2].color[4] === 'u') formula.push(...allFormula.topLayerFishOne['f'])
-            else if (dynamicData[2].color[3] === 'u' && dynamicData[4].color[3] === 'u') formula.push(...allFormula.topLayerFishOne['l'])
-            else if (dynamicData[4].color[5] === 'u' && dynamicData[6].color[5] === 'u') formula.push(...allFormula.topLayerFishOne['b'])
-            else formula.push(...allFormula.topLayerFishOne['r'])
+            if (dyData[0].color[4] === 'u' && dyData[2].color[4] === 'u') layer = 'f'
+            else if (dyData[2].color[3] === 'u' && dyData[4].color[3] === 'u') layer = 'l'
+            else if (dyData[4].color[5] === 'u' && dyData[6].color[5] === 'u') layer = 'b'
+            else layer = 'r'
             break
           case 3:
-            sum = counter[0].id + counter[1].id + counter[2].id
-            formula.push(...allFormula.topLayerFishOne[data[13 - sum].original[1]])
+            layer = data[13 - sum].original[1]
             break
         }
-        that._recursion(formula).then(() => topSurface(res))
+        that._recursion(allFormula.topLayerFishOne[layer]).then(() => topSurface(reslove))
       }
-      // 顶层角块 复位
-      function topCorner(res) {
-        const formula = []
+      // 顶层角块 复位 t3
+      function topCorner(reslove) {
         const counter = []
-        if (dynamicData[0].color[4] === dynamicData[2].color[4]) counter.push('f')
-        if (dynamicData[2].color[3] === dynamicData[4].color[3]) counter.push('l')
-        if (dynamicData[4].color[5] === dynamicData[6].color[5]) counter.push('b')
-        if (dynamicData[6].color[1] === dynamicData[0].color[1]) counter.push('r')
-        if (counter.length === 0) formula.push(...allFormula.topLayerCornerBlock['f'])
-        else if (counter.length === 1) formula.push(...allFormula.topLayerCornerBlock[counter[0]])
-        else {
-          let tmpStep = []
-          switch (dynamicData[0].color[4]) {
-            case 'l':
-              tmpStep = u
-              break
-            case 'b':
-              tmpStep = u2
-              break
-            case 'r':
-              tmpStep = u1
-              break
-            case 'f':
-              return res()
-          }
-          return that._recursion([tmpStep]).then(() => res())
+        subscript.topCorner.forEach(id => {
+          const [cI, id1, layer] = MAP.M10[id]
+          const colors = dyData[id].color
+          const colors1 = dyData[id1].color
+          if (colors[cI] === colors1[cI]) counter.push(layer)
+        })
+        let layer = ''
+        if (counter.length === 0) layer = 'f' // 四个面角块侧面颜色都不一致
+        else if (counter.length === 1) layer = counter[0]
+        if (layer) {
+          that._recursion(allFormula.topLayerCornerBlock[layer]).then(() => topCorner(reslove))
+          return
         }
-        that._recursion(formula).then(() => topCorner(res))
+        let tmpStep = null
+        const colors = dyData[0].color
+        switch (colors[4]) { // 当四个面角块侧面颜色都一致时 只需旋转顶层即可
+          case 'l':
+            tmpStep = u
+            break
+          case 'b':
+            tmpStep = u2
+            break
+          case 'r':
+            tmpStep = u1
+            break
+          case 'f':
+            return reslove()
+        }
+        return that._recursion([tmpStep]).then(reslove)
       }
-      // 顶层棱块 复位
-      function topEdgePosition(res) {
-        const formula = []
-        const color = [
-          dynamicData[1].color[4],
-          dynamicData[3].color[3],
-          dynamicData[5].color[5],
-          dynamicData[7].color[1]
-        ]
-        const position = ['f', 'l', 'b', 'r']
+      // 顶层棱块 复位 t4
+      function topEdgePosition(reslove) {
         const counter = []
-        for (let i = 0; i < position.length; i++) {
-          if (position[i] === color[i]) counter.push(position[i])
-          if (counter.length >= 2) return res()
-        }
+        subscript.topEdge.forEach(id => {
+          const colors = dyData[id].color
+          const [cI, layer] = MAP.M11[id]
+          if (colors[cI] === layer) counter.push(layer)
+        })
+        if (counter.length > 1) return reslove()
+        let layer = 'f', isReverse = false
         if (counter.length === 1) {
-          let layer
-          switch (counter[0]) {
-            case 'f':
-              layer = 'b'
-              break
-            case 'l':
-              layer = 'r'
-              break
-            case 'b':
-              layer = 'f'
-              break
-            case 'r':
-              layer = 'l'
-              break
-          }
-          formula.push(...allFormula.topLayerEdgeBlockOne[layer])
-        } else {
-          formula.push(...allFormula.topLayerEdgeBlockOne['f'])
+          const [targetLayer, id, cI] = MAP.M12[counter[0]]
+          const colors = dyData[id].color
+          if (colors[cI] !== targetLayer) isReverse = true
+          layer = targetLayer
         }
-        that._recursion(formula).then(() => topEdgePosition(res))
+        let formula = allFormula.topLayerEdgeBlockOne[layer]
+        if (isReverse) formula = that._reversal(formula)
+        that._recursion(formula).then(() => topEdgePosition(reslove))
+      }
+
+      function getDir(id) {
+        const colors = dyData[id].color
+        const cI = data[id].colorIndex.find(cI => colors[cI] === 'd')
+        return colorIndexToLayerMap[cI]
+      }
+      function topRotate(id, targetId) { // 传入两个顶层棱块或角块的id 生成id -> targetId的步骤
+        switch (id - targetId) {
+          case 2: return u1
+          case 4: return u2
+          case 6: return u
+          case -2: return u
+          case -4: return u2
+          case -6: return u1
+          default: return null
+        }
+      }
+      function positionError(arr) { // 找出不在初始位置的块的id 没有则返回-1 (不判断颜色方向是否正确)
+        for (let i = 0; i < arr.length; i++) {
+          const { colorIndex, layer, id } = data[arr[i]]
+          const colorItem = dyData[arr[i]]
+          for (let j = 0; j < colorIndex.length; j++) {
+            if (!layer[colorItem.color[colorIndex[j]]]) return id
+          }
+        }
+        return -1
       }
 
       return new Promise(res => {
@@ -958,7 +840,7 @@ export default {
             handler(resolve)
           })
         }
-        const tasks = [bottomCrossOne, bottomCrossTwo, bottomCornerPosition, bottomCorner, centerEdgePosition, center, topCrossPosition, topSurface, topCorner, topEdgePosition]
+        const tasks = [bottomCrossOne, bottomCrossTwo, bottomCrossThree, bottomCornerOne, bottomCornerTwo, centerEdgeOne, centerEdgeTwo, topCross, topSurface, topCorner, topEdgePosition]
         function runTasksSequentially(tasks) {
           if (tasks.length === 0) {
             that.isAutoRecovery = false
@@ -967,7 +849,6 @@ export default {
             res()
             return
           }
-          // const step = [ '底层十字架复原', '底层十字架复原', '底层角块', '底层角块', '中间层棱块', '中间层棱块', '顶层十字架', '顶面复原', '顶层角块', '顶层棱块' ]
           const task = tasks.shift()
           simulateAsyncTask(task).then(() => {
             runTasksSequentially(tasks)

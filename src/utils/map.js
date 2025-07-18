@@ -50,7 +50,7 @@ export const keyUpEventMap = {
     }
   },
   'Enter': {
-    shift(that) { that._autoRecovery() }, // 自动复原魔方
+    shift(that) { that.autoRecoveryItLayer() }, // 自动复原魔方
     normal(that) { that.disruptionHanlder() }, // 打乱魔方
   },
   'z': {

@@ -74,9 +74,8 @@
         <div class="control">
           <div @click="disruptionHanlder" title="随机生成打乱公式并执行">打乱</div>
           <div @click="_restore" title="强制复原，无公式">复原</div>
-          <div @click="_autoRecovery()" title="自动生成公式复原">自动</div>
-          <div @click="_autoRecoveryFormula()" title="只生成公式，不复原">公式</div>
-          <!-- <div @click="reversal = !reversal" :style="reversal ? 'background: white;' : ''">逆转</div> -->
+          <div @click="autoRecoveryItLayer" title="以层先法复原魔方">层先</div>
+          <div @click="autoRecoveryItTwoStep" title="以两阶段还原法复原魔方">二步</div>
           <div @click="startRecordHandler" title="开始记录步骤">开始</div>
           <div @click="closeRecordHandler" title="结束记录并在控制台输出步骤">结束</div>
           <div @click="rollBackHandler" title="撤回上一步，只能在开始记录后撤回">撤销</div>
@@ -85,8 +84,8 @@
           <div @click="hideTip = true" title="显示魔方表面的遮罩层">显示</div>
           <div @click="menuMoveConfig.display = false" title="关闭此菜单，使用'ctrl+空格键'再次打开">关闭</div>
           <div @click="settingConfig.display = !settingConfig.display" title="打开设置面板">设置</div>
-          <div @click="autoRecoveryItTwoStep" title="打开设置面板">生成公式</div>
-          <div @click="strToArrHanlder" title="打开设置面板">逆向</div>
+          <!-- <div @click="strToArrHanlder" title="通过字符串设置魔方状态">逆向</div>
+          <div @click="test" title="打开设置面板">测试</div> -->
         </div>
         <div class="formula" @click="pasteTextToClipboard(outputText)">{{ outputText }}</div>
       </div>
@@ -168,7 +167,7 @@
             :style="{ color: value.error ? 'red' : 'black' }">{{ value.str }}</span>
         </div>
         <div class="rewrite">
-          <textarea cols="30" rows="5" v-model="errorConfig.formula" placeholder="请修改公式"></textarea>
+          <textarea class="text" cols="30" rows="5" v-model="errorConfig.formula" placeholder="请修改公式"></textarea>
           <button @click="reExecute()">{{ errorConfig.formula ? '重新执行' : '关闭' }}</button>
         </div>
       </div>
@@ -185,6 +184,10 @@ import colorExchange from '../utils/colorExchange.js'
 import DragMenu from '../components/DragMenu.vue'
 import ajax from '../utils/ajax.js'
 
+const backupData = [] // 初始魔方所有块每个面的动态数据 复原时使用
+const cloneData = [] // 魔方所有块每个面的动态数据 层先法复原时使用
+const step = [] // 当前已经执行过的步骤
+
 export default {
   name: 'MagicSquare',
   components: { DragMenu },
@@ -200,7 +203,6 @@ export default {
       'rf', 'f', 'lf', 'l', 'lb', 'b', 'br', 'r', 'center',
       'drf', 'df', 'dlf', 'dl', 'dlb', 'db', 'drb', 'dr', 'd'
     ]
-    const allColor = [] // 初始魔方的所有块每个面的颜色 复原时使用
     const map = {
       u: { cI: 0, axis: 1, num: -1 },
       r: { cI: 1, axis: 0, num: 1 },
@@ -239,7 +241,8 @@ export default {
           display: true, // 是否显示 （在魔方旋转时使用）
           color // 魔方各个面的颜色 数组形式 顺序为 上、右、下、左、前、后
         }
-        allColor[index] = deepCopy(color)
+        backupData[index] = deepCopy(dynamicData[index])
+        cloneData[index] = deepCopy(dynamicData[index])
       })
       return [staticData, dynamicData]
     }
@@ -248,7 +251,6 @@ export default {
       dynamicData: data[1], // 动态数据
       dynamicDatas,
       tips: Object.freeze(tips),
-      allColor: Object.freeze(allColor),
       operation: Object.freeze(operation), // 魔方所有操作方法
       formula: Object.freeze(formula), // 魔方公式
       formulaButton, // 魔方公式所对应的按钮
@@ -258,10 +260,8 @@ export default {
       isImplementFormula: false, // 当前是否正在执行公式
       isAutoRecovery: false, // 是否正在自动复原
       isAutoRecoveryFormula: false, // 是否正在生成复原公式
-      reversal: false, // 是否逆转公式
       formulaName: '', // 当前选中公式的名称
       record: false, // 是否开始记录
-      step: [], // 当前已经执行过的步骤
       outputText: '', // 文本形式输出的公式
       revolve: '', // 旋转时给本体加的样式
       intercept: true, // 单层旋转时的节流阀 有延时
@@ -349,7 +349,7 @@ export default {
       const tmpFormula = [layer, deg, time] // 保存传入的初始值 为后续的记录做准备
       return new Promise(resolve => {
         if (!(this.intercept && (this.prohibitRotate || this.isImplementFormula))) return
-        this.record && this._record(tmpFormula) // 记录
+        this.record && this._record(...tmpFormula) // 记录
         const axis = layerToAxisMap[layer][0] // 根据目标层调整旋转的轴以及方向
         deg *= layerToAxisMap[layer][1]
         this.intercept = false // 开启节流阀
@@ -401,7 +401,7 @@ export default {
       this.selectedFormula = false
       this.formulaButton.forEach(v => v.active = false)
     },
-    implementFormulaHanlder(formula, isNeedReversal = this.reversal) { // 通过选择的公式和点击的层选择公式并交给递归函数执行
+    implementFormulaHanlder(formula, isNeedReversal = false) { // 通过选择的公式和点击的层选择公式并交给递归函数执行
       if (isNeedReversal) {
         formula = this._reversal(deepCopy(formula))
       }
@@ -431,7 +431,7 @@ export default {
       this.record = true
     },
     closeRecordHandler() { // 结束记录
-      this.step = []
+      step.length = 0
       const formula = this._strToFormula(this.outputText) // 将记录的字符串转换为公式
       const simplifyFormula = this._simplifyStepsHanlder(formula) // 简化公式
       const simplifyStr = this._formulaToStr(simplifyFormula) // 公式转字符串
@@ -443,15 +443,15 @@ export default {
     },
     rollBackHandler() { // 撤销
       if (!this.intercept) return
-      if (!this.step.length) return
+      if (!step.length) return
       this.record = false // 撤销时关闭记录功能
       this.outputText = this.outputText.replace(/([a-z]|[a-z]('|2))$/, '')
-      this.controlRotateHandler(...this._reversal([this.step.pop()])[0])
+      this.controlRotateHandler(...this._reversal([step.pop()])[0])
         .then(() => this.record = true) // 撤销完成时再次打开记录
     },
-    _record(formula) { // 记录
-      this.step.push([...formula])
-      this.outputText += this._formulaToStr([formula])
+    _record(layer, deg, time) { // 记录
+      step.push([layer, deg, time])
+      this.outputText += this._formulaToStr([[layer, deg, time]])
     },
     _reversal(formulaArr) { // 逆转传入的步骤
       const dstArr = []
@@ -480,24 +480,48 @@ export default {
     _displaySwitch(boolean, layer) { // 旋转时控制魔方显示部分
       this.data.forEach((v, i) => v.layer[layer] ? this.dynamicDatas[i].display = boolean : this.dynamicData[i].display = boolean)
     },
-    _restore() { // 通过重置各个色块颜色复原
+    _restore(e, template = backupData) { // 通过重置各个色块颜色复原
       for (let i = 0; i < 27; i++) {
         for (let j = 0; j < 6; j++) {
-          const color = this.allColor[i][j]
+          const color = template[i].color[j]
           this.dynamicData[i].color[j] = color
           this.dynamicDatas[i].color[j] = color
         }
       }
     },
-    _autoRecovery() { // 以层先法自动生成公式并复原
+    _restore2(template = this.dynamicData, target = cloneData) { // 同步数据
+      for (let i = 0; i < 27; i++) {
+        for (let j = 0; j < 6; j++) {
+          target[i].color[j] = template[i].color[j]
+        }
+      }
+    },
+    _controlRotateHandler2(layer, deg) { // 层先法复原魔方时使用此函数 节约性能
+      const time = this.configInformation.rotateTime * (Math.abs(deg) / 90)
+      this._record(layer, deg, time)
+      deg *= layerToAxisMap[layer][1]
+      colorExchange(cloneData, layer, deg)
+    },
+    _recursion2(formula) { // 层先法复原魔方时使用此函数 节约性能
+      for (let i = 0; i < formula.length; i++) {
+        this._controlRotateHandler2(...formula[i])
+      }
+      return Promise.resolve()
+    },
+    test() {
+      this._restore2()
+      const formula = otherFormula.flower
+      this._recursion2(formula)
+      this._restore(null, cloneData)
+    },
+    _autoRecovery() { // 层先法生成还原公式
       const that = this
-      that.isAutoRecovery = true
-      that.startRecordHandler()
-      const data = this.data
-      const dyData = this.dynamicData
+      const data = that.data
+      const dyData = cloneData
       const allFormula = that.formula
       const MAP = autoRecoveryMap // 层先法复原专用map
       const FORMULA = autoRecoveryFormula // 层先法复原专用公式
+      const run = that._recursion2 // 执行公式数组函数
       const { r2, l2, f2, b2, u, u1, u2 } = that.operation
       const subscript = {
         topEdge: [1, 3, 5, 7], // 顶层棱块下标
@@ -509,6 +533,7 @@ export default {
       const flags = { // 节流
         one: true,
       }
+
       // 为了方便写注释 以下将会默认魔方颜色为初始颜色 注释中所有面的称谓都用所对应的颜色代替
       // u: 黄色 r: 红色 d: 白色 l: 橙色 f: 蓝色 b: 绿色
 
@@ -521,7 +546,7 @@ export default {
             if (dyData[21].color[2] !== 'd') formula.push(l2)
             if (dyData[23].color[2] !== 'd') formula.push(b2)
             if (dyData[25].color[2] !== 'd') formula.push(r2)
-            that._recursion(formula).then(reslove)
+            run(formula).then(reslove)
             return
           }
           flags.one = false
@@ -532,7 +557,7 @@ export default {
           const top = _top(targetId) // 将顶层空位调整至对应位置
           top && formula.push(top)
           formula.push(map[layerD])
-          that._recursion(formula).then(() => bottomCrossOne(reslove))
+          run(formula).then(() => bottomCrossOne(reslove))
           return
         }
         const [layerD2, layerNotD2] = _findLayer(subscript.bottomEdge) // 查找底层棱块
@@ -553,7 +578,7 @@ export default {
           formula.push(tmpFormula1)
         }
 
-        that._recursion(formula).then(() => bottomCrossOne(reslove))
+        run(formula).then(() => bottomCrossOne(reslove))
 
         function _findLayer(indexArr) { // 含有白色的块两个面所对应层
           let dCI = -1, notDCI = -1
@@ -595,7 +620,7 @@ export default {
           else if (colors[cI1] === 'd') layerD = colorIndexToLayerMap[cI1]
           else continue // 当前棱块不含白色
           if (layerD === 'u') continue // 当前棱块未翻转
-          that._recursion(FORMULA.F1[layerD]).then(() => bottomCrossTwo(reslove))
+          run(FORMULA.F1[layerD]).then(() => bottomCrossTwo(reslove))
           return
         }
         return reslove() // 顶层所有棱块未翻转 第二步结束
@@ -613,7 +638,7 @@ export default {
           const top = topRotate(id, MAP.M1[color][0])
           top && formula.push(top)
           formula.push(that.operation[color + '2'])
-          that._recursion(formula).then(() => bottomCrossThree(reslove))
+          run(formula).then(() => bottomCrossThree(reslove))
           return
         }
         return reslove()
@@ -628,17 +653,17 @@ export default {
           if (layerArr.length !== 2) continue // 该角块不含白色
           const targetId = MAP.M3[layerArr[0]][layerArr[1]]
           const top = topRotate(id, targetId)
-          that._recursion(top ? [top] : []).then(() => { // 将角块移动到目标位置的正上方
+          run(top ? [top] : []).then(() => { // 将角块移动到目标位置的正上方
             const dir = getDir(targetId) // 角块白色面的朝向
             const [map, layer] = MAP.M4[targetId]
-            that._recursion(map[dir][layer]).then(() => bottomCornerOne(reslove))
+            run(map[dir][layer]).then(() => bottomCornerOne(reslove))
           })
           return
         }
         const errorId = positionError(subscript.bottomCorner) // 找出底层中位置错误的角块 并移到顶层
         if (errorId !== -1) {
           const layer = MAP.M5[errorId][1]
-          that._recursion(FORMULA.F2[layer]).then(() => bottomCornerOne(reslove))
+          run(FORMULA.F2[layer]).then(() => bottomCornerOne(reslove))
           return
         }
         return reslove()
@@ -652,7 +677,7 @@ export default {
           const [map, layer] = MAP.M5[id]
           let formula = FORMULA.F5[layer]
           if (map[dir]) formula = that._reversal(formula)
-          that._recursion(formula).then(() => bottomCornerTwo(reslove))
+          run(formula).then(() => bottomCornerTwo(reslove))
           return
         }
         return reslove()
@@ -672,13 +697,13 @@ export default {
           const top = topRotate(id, targetId)
           const formula = top ? [top] : []
           formula.push(...F[layer])
-          that._recursion(formula).then(() => centerEdgeOne(reslove))
+          run(formula).then(() => centerEdgeOne(reslove))
           return
         }
         const errorId = positionError(subscript.centerEdge) // 找出中间层位置错误的棱块 并移到顶层
         if (errorId !== -1) {
           const layer = MAP.M7[errorId][1]
-          that._recursion(FORMULA.F6[layer]).then(() => centerEdgeOne(reslove))
+          run(FORMULA.F6[layer]).then(() => centerEdgeOne(reslove))
           return
         }
         return reslove()
@@ -691,7 +716,7 @@ export default {
         if (dyData[13].color[5] !== 'b') formula.push(...allFormula.centerLayerFlip['b'])
         if (dyData[15].color[5] !== 'b') formula.push(...allFormula.centerLayerFlip['r'])
         if (formula.length === 0) return reslove()
-        that._recursion(formula, false).then(() => reslove())
+        run(formula, false).then(() => reslove())
       }
 
       // 顶层十字架复原 t1
@@ -703,14 +728,14 @@ export default {
         })
         if (counter.length === 4) return reslove() // 顶层十字架已复原
         if (counter.length === 0) { // 顶层十字架只有中心块为黄色
-          that._recursion(allFormula.topLayerOne['f'])
-            .then(() => that._recursion(allFormula.topLayerTwo['f']))
+          run(allFormula.topLayerOne['f'])
+            .then(() => run(allFormula.topLayerTwo['f']))
             .then(reslove)
           return
         }
         let layer = MAP.M8[counter[0] + counter[1]]
         if (!layer) layer = counter[0] === 3 ? 'f' : 'b'
-        that._recursion(allFormula.topLayerTwo[layer]).then(() => topCross(reslove))
+        run(allFormula.topLayerTwo[layer]).then(() => topCross(reslove))
       }
       // 顶面复原 t2
       function topSurface(reslove) {
@@ -751,7 +776,7 @@ export default {
             layer = data[13 - sum].original[1]
             break
         }
-        that._recursion(allFormula.topLayerFishOne[layer]).then(() => topSurface(reslove))
+        run(allFormula.topLayerFishOne[layer]).then(() => topSurface(reslove))
       }
       // 顶层角块 复位 t3
       function topCorner(reslove) {
@@ -766,7 +791,7 @@ export default {
         if (counter.length === 0) layer = 'f' // 四个面角块侧面颜色都不一致
         else if (counter.length === 1) layer = counter[0]
         if (layer) {
-          that._recursion(allFormula.topLayerCornerBlock[layer]).then(() => topCorner(reslove))
+          run(allFormula.topLayerCornerBlock[layer]).then(() => topCorner(reslove))
           return
         }
         let tmpStep = null
@@ -784,7 +809,7 @@ export default {
           case 'f':
             return reslove()
         }
-        return that._recursion([tmpStep]).then(reslove)
+        return run([tmpStep]).then(reslove)
       }
       // 顶层棱块 复位 t4
       function topEdgePosition(reslove) {
@@ -804,7 +829,7 @@ export default {
         }
         let formula = allFormula.topLayerEdgeBlockOne[layer]
         if (isReverse) formula = that._reversal(formula)
-        that._recursion(formula).then(() => topEdgePosition(reslove))
+        run(formula).then(() => topEdgePosition(reslove))
       }
 
       function getDir(id) {
@@ -842,13 +867,7 @@ export default {
         }
         const tasks = [bottomCrossOne, bottomCrossTwo, bottomCrossThree, bottomCornerOne, bottomCornerTwo, centerEdgeOne, centerEdgeTwo, topCross, topSurface, topCorner, topEdgePosition]
         function runTasksSequentially(tasks) {
-          if (tasks.length === 0) {
-            that.isAutoRecovery = false
-            that.closeRecordHandler()
-            that.$message.success('完成')
-            res()
-            return
-          }
+          if (tasks.length === 0) return res()
           const task = tasks.shift()
           simulateAsyncTask(task).then(() => {
             runTasksSequentially(tasks)
@@ -857,29 +876,35 @@ export default {
         runTasksSequentially(tasks)
       })
     },
-    _autoRecoveryFormula() { // 仅生成复原公式 不复原
-      const that = this
-      that.isAutoRecoveryFormula = true // 节流阀
-      const tmpTime = that.configInformation.rotateTime // 保存正常状态下的单层旋转时间
-      that.configInformation.rotateTime = 0 // 将单层旋转时间更改为零 降低生成公式耗时
-      that._autoRecovery().then(() => { // 调用自动复原的函数来生成复原公式
-        that.configInformation.rotateTime = tmpTime // 恢复初始时间
-        that.dynamicData = deepCopy(that.dynamicDatas) // 将已复原的数据还原成初始的状态
-        that.isAutoRecoveryFormula = false
+    autoRecoveryItLayer() { // 以层先法生成还原公式 并复原
+      this._restore2() // 同步数据至cloneData
+      this.startRecordHandler()
+      this._autoRecovery().then(() => { // 生成公式
+        if (this.configInformation.rotateTime === 0) {
+          this._restore(null, cloneData)
+        } else {
+          const formula = [...step]
+          this._recursion(formula)
+        }
+        this.closeRecordHandler()
       })
     },
-    autoRecoveryItTwoStep() { // 以两步还原法生成魔方公式
+    autoRecoveryItTwoStep() { // 以两步还原法生成还原公式 并复原
       const facelets = extractAsStr(this.dynamicData).toUpperCase()
       ajax.post('solveTwoPhase', { facelets }).then(res => {
-        this.startRecordHandler()
-        const solution = this._strToFormula(res.solution)
-        this._recursion(solution).then(() => this.closeRecordHandler())
+        if (this.configInformation.rotateTime === 0) {
+          this._restore()
+          this.outputText = res.solution
+        } else {
+          this.startRecordHandler()
+          const solution = this._strToFormula(res.solution)
+          this._recursion(solution).then(() => this.closeRecordHandler())
+        }
       })
     },
-    strToArrHanlder() {
+    strToArrHanlder() { // 字符转数组
       const str = 'FFDLUUDBRBFLURDBFDFRDDFBRLLUBURDLFDFUURDLRUUBBRRLBBLFL'
       strToArr(this.dynamicData, this.dynamicDatas, str)
-      console.log(str)
     },
     _keyUpEvent(e) { // 键盘弹起事件
       const action = keyUpEventMap[e.key]
@@ -953,7 +978,7 @@ export default {
       }
       const config = this.errorConfig
       config.errorData = errorData
-      config.formula = ''
+      config.formula = str
       config.display = true
     },
     reExecute() { // 重新执行公式
@@ -1358,8 +1383,10 @@ export default {
     align-items: flex-start;
 
     .formula-str {
+      padding: 0 2px;
       width: 100%;
       word-wrap: break-word;
+      user-select: text;
     }
 
     .rewrite {
@@ -1368,6 +1395,10 @@ export default {
       justify-content: center;
       align-items: center;
       gap: 10px;
+      .text {
+        font-size: 16px;
+        font-family: 'Microsoft YaHei';
+      }
     }
   }
 }
